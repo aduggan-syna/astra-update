@@ -1,0 +1,43 @@
+#include <iostream>
+#include <libusb-1.0/libusb.h>
+
+int run_usb() {
+    libusb_context *ctx = nullptr;
+    libusb_device_handle *dev_handle = nullptr;
+    int r;
+
+    // Initialize libusb
+    r = libusb_init(&ctx);
+    if (r < 0) {
+        std::cerr << "Failed to initialize libusb: " << libusb_error_name(r) << std::endl;
+        return 1;
+    }
+
+    // Open a device (using a dummy VID and PID, replace with actual values)
+    dev_handle = libusb_open_device_with_vid_pid(ctx, 0x1234, 0x5678);
+    if (!dev_handle) {
+        std::cerr << "Failed to open USB device" << std::endl;
+        libusb_exit(ctx);
+        return 1;
+    }
+
+    // Get device descriptor
+    libusb_device_descriptor desc;
+    r = libusb_get_device_descriptor(libusb_get_device(dev_handle), &desc);
+    if (r < 0) {
+        std::cerr << "Failed to get device descriptor: " << libusb_error_name(r) << std::endl;
+        libusb_close(dev_handle);
+        libusb_exit(ctx);
+        return 1;
+    }
+
+    std::cout << "Device Descriptor:" << std::endl;
+    std::cout << "  Vendor ID: " << std::hex << desc.idVendor << std::endl;
+    std::cout << "  Product ID: " << std::hex << desc.idProduct << std::endl;
+
+    // Close the device and deinitialize libusb
+    libusb_close(dev_handle);
+    libusb_exit(ctx);
+
+    return 0;
+}
