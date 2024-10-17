@@ -1,19 +1,14 @@
 #include <iostream>
-#include "usb_transport.hpp"
+#include "astra_update.hpp"
 
 int main() {
-    USBTransport transport;
+    AstraUpdate update{"/home/aduggan/astra_boot", "/home/aduggan/eMMCimg"};
 
-    if (transport.init() < 0) {
+    int ret = update.Run();
+    if (ret < 0) {
+        std::cerr << "Error running update" << std::endl;
         return 1;
     }
-
-    std::cout << "USB transport initialized successfully" << std::endl;
-
-    transport.start_hotplug_monitoring();
-    std::cout << "Hotplug monitoring started" << std::endl;
-    
-    transport.handle_hotplug_events();
 
     return 0;
 }
