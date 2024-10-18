@@ -40,6 +40,17 @@ std::vector<AstraBootImage> BootImageCollection::GetSupportedImages(uint16_t ven
     return images;
 }
 
+std::vector<std::tuple<uint16_t, uint16_t>> BootImageCollection::GetDeviceIDs() const
+{
+    std::vector<std::tuple<uint16_t, uint16_t>> deviceIds;
+
+    for (const auto& image : m_images) {
+        deviceIds.push_back(std::make_tuple(image.GetVendorId(), image.GetProductId()));
+    }
+
+    return deviceIds;
+}
+
 BootImageCollection::~BootImageCollection()
 {
 }

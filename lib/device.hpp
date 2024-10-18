@@ -1,13 +1,18 @@
 #pragma once
 
+#include <cstdint>
+#include <cstddef>
+
 class Device {
 public:
-    Device();
-    ~Device();
+    Device()
+    {}
+    virtual ~Device()
+    {}
 
-    bool open();
-    void close();
+    virtual bool Open() = 0;
+    virtual void Close() = 0;
 
-    bool read(uint8_t *data, size_t size);
-    bool write(const uint8_t *data, size_t size);
+    virtual bool Read(uint8_t *data, size_t size) = 0;
+    virtual bool Write(const uint8_t *data, size_t size) = 0;
 };

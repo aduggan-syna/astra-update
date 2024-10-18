@@ -23,6 +23,7 @@ file(GLOB SRC astra_boot_image.cpp
                 astra_device.cpp
                 astra_update.cpp
                 boot_image_collection.cpp
+                usb_device.cpp
                 usb_transport.cpp
 )
 add_library(astraupdate STATIC ${SRC})
