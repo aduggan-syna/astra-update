@@ -9,12 +9,12 @@ enum AstraSecureBootVersion {
     ASTRA_SECURE_BOOT_V3,
 };
 
-class AstraBootImage 
+class AstraBootFirmware
 {
 public:
-    AstraBootImage(std::string path) : m_path{path}
+    AstraBootFirmware(std::string path) : m_path{path}
     {}
-    ~AstraBootImage();
+    ~AstraBootFirmware();
 
     int Load();
 

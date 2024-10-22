@@ -2,20 +2,20 @@
 
 #include <string>
 
-class BootImageCollection;
+class BootFirmwareCollection;
 class USBTransport;
 
 class AstraUpdate
 {
 public:
-    AstraUpdate(std::string bootImagePath, std::string firmwareImage);
+    AstraUpdate(std::string bootFirmwarePath, std::string osImage);
     ~AstraUpdate();
 
     int Run();
 
 private:
-    std::string m_bootImagePath;
-    std::string m_firmwareImage;
-    BootImageCollection *m_bootImages;
+    std::string m_bootFirmwarePath;
+    std::string m_osImage;
+    BootFirmwareCollection *m_bootFirmwares;
     USBTransport *m_transport;
 };

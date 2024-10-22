@@ -3,9 +3,9 @@
 #include <stdexcept>
 #include <iomanip>
 
-#include "astra_boot_image.hpp"
+#include "astra_boot_firmware.hpp"
 
-int AstraBootImage::Load()
+int AstraBootFirmware::Load()
 {
     try {
         YAML::Node manifest = YAML::LoadFile(m_path + "/manifest.yaml");
@@ -17,7 +17,7 @@ int AstraBootImage::Load()
         m_vendorId = std::stoi(manifest["vendor_id"].as<std::string>(), nullptr, 16);
         m_productId = std::stoi(manifest["product_id"].as<std::string>(), nullptr, 16);
 
-        std::cout << "Loaded boot image: " << m_chipName << " " << m_boardName << std::endl;
+        std::cout << "Loaded boot firmware: " << m_chipName << " " << m_boardName << std::endl;
         std::cout << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "gen3") << std::endl;
         std::cout << "Vendor ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_vendorId << std::endl;
         std::cout << "Product ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_productId << std::endl;
@@ -32,6 +32,6 @@ int AstraBootImage::Load()
     return 0;
 }
 
-AstraBootImage::~AstraBootImage()
+AstraBootFirmware::~AstraBootFirmware()
 {
 }
