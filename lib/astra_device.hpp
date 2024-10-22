@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 class AstraDevice
 {
 public:
@@ -7,6 +9,6 @@ public:
     ~AstraDevice();
 
 private:
-    uint_16 m_vendorId;
-    uint_16 m_productId;
+    uint16_t m_vendorId;
+    uint16_t m_productId;
 };
