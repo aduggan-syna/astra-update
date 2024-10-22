@@ -1,12 +1,9 @@
 #pragma once
 
 #include <string>
+#include <memory>
 
-class BootFirmwareCollection;
-class USBTransport;
-
-class AstraUpdate
-{
+class AstraUpdate {
 public:
     AstraUpdate(std::string bootFirmwarePath, std::string osImage);
     ~AstraUpdate();
@@ -14,8 +11,6 @@ public:
     int Run();
 
 private:
-    std::string m_bootFirmwarePath;
-    std::string m_osImage;
-    BootFirmwareCollection *m_bootFirmwares;
-    USBTransport *m_transport;
+    class AstraUpdateImpl;
+    std::unique_ptr<AstraUpdateImpl> pImpl;
 };
