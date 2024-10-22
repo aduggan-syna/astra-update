@@ -13,6 +13,10 @@ USBDevice::USBDevice(libusb_device *device)
 
 USBDevice::~USBDevice()
 {
+    if (m_open) {
+        Close();
+    }
+
     libusb_unref_device(m_device);
 }
 
@@ -45,6 +49,33 @@ bool USBDevice::Open()
     std::cout << "  iConfiguration: " << static_cast<int>(m_config->iConfiguration) << std::endl;
     std::cout << "  bmAttributes: " << static_cast<int>(m_config->bmAttributes) << std::endl;
     std::cout << "  MaxPower: " << static_cast<int>(m_config->MaxPower) << std::endl;
+
+    ret = libusb_detach_kernel_driver(m_handle, 0);
+    if (ret < 0) {
+        std::cerr << "Failed to detach kernel driver: " << libusb_error_name(ret) << std::endl;
+        return false;
+    }
+
+    ret = libusb_claim_interface(m_handle, 0);
+    if (ret < 0) {
+        std::cerr << "Failed to claim interface: " << libusb_error_name(ret) << std::endl;
+        return false;
+    }
+
+    for (int i = 0; i < m_config->bNumInterfaces; ++i) {
+        const libusb_interface &interface = m_config->interface[i];
+        for (int j = 0; j < interface.num_altsetting; ++j) {
+            const libusb_interface_descriptor &altsetting = interface.altsetting[j];
+            for (int k = 0; k < altsetting.bNumEndpoints; ++k) {
+                const libusb_endpoint_descriptor &endpoint = altsetting.endpoint[k];
+                ret = libusb_clear_halt(m_handle, endpoint.bEndpointAddress);
+                if (ret < 0) {
+                    std::cerr << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << std::endl;
+                    return false;
+                }
+            }
+        }
+    }
 
     return true;
 }
