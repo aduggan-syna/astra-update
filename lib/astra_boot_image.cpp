@@ -10,6 +10,7 @@ int AstraBootImage::Load()
     try {
         YAML::Node manifest = YAML::LoadFile(m_path + "/manifest.yaml");
 
+        m_id = manifest["id"].as<std::string>();
         m_chipName = manifest["chip"].as<std::string>();
         m_boardName = manifest["board"].as<std::string>();
         m_secureBootVersion = manifest["secure_boot"].as<std::string>() == "gen2" ? ASTRA_SECURE_BOOT_V2 : ASTRA_SECURE_BOOT_V3;

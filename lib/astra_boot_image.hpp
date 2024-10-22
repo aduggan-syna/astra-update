@@ -27,6 +27,7 @@ public:
 private:
     std::string m_path;
     std::vector<std::string> m_files;
+    std::string m_id;
     std::string m_chipName;
     std::string m_boardName;
     enum AstraSecureBootVersion m_secureBootVersion;
