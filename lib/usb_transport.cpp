@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <libusb-1.0/libusb.h>
 
 #include "usb_transport.hpp"
@@ -82,6 +83,23 @@ int LIBUSB_CALL USBTransport::HotplugEventCallback(libusb_context *ctx, libusb_d
         for (const auto& id : transport->m_deviceIds) {
             if (desc.idVendor == std::get<0>(id) && desc.idProduct == std::get<1>(id)) {
                 std::cout << "Device matches image" << std::endl;
+
+                std::cout << "Device Descriptor:" << std::endl;
+                std::cout << "  bLength: " << static_cast<int>(desc.bLength) << std::endl;
+                std::cout << "  bDescriptorType: " << static_cast<int>(desc.bDescriptorType) << std::endl;
+                std::cout << "  bcdUSB: " << desc.bcdUSB << std::endl;
+                std::cout << "  bDeviceClass: " << static_cast<int>(desc.bDeviceClass) << std::endl;
+                std::cout << "  bDeviceSubClass: " << static_cast<int>(desc.bDeviceSubClass) << std::endl;
+                std::cout << "  bDeviceProtocol: " << static_cast<int>(desc.bDeviceProtocol) << std::endl;
+                std::cout << "  bMaxPacketSize0: " << static_cast<int>(desc.bMaxPacketSize0) << std::endl;
+                std::cout << "  idVendor: 0x" << std::hex << std::setw(4) << std::setfill('0') << desc.idVendor << std::endl;
+                std::cout << "  idProduct: 0x" << std::hex << std::setw(4) << std::setfill('0') << desc.idProduct << std::endl;
+                std::cout << "  bcdDevice: " << desc.bcdDevice << std::endl;
+                std::cout << "  iManufacturer: " << static_cast<int>(desc.iManufacturer) << std::endl;
+                std::cout << "  iProduct: " << static_cast<int>(desc.iProduct) << std::endl;
+                std::cout << "  iSerialNumber: " << static_cast<int>(desc.iSerialNumber) << std::endl;
+                std::cout << "  bNumConfigurations: " << static_cast<int>(desc.bNumConfigurations) << std::endl;
+
                 transport->m_deviceFound = true;
                 transport->m_devices.push_back(std::make_unique<USBDevice>(device));
                 break;
