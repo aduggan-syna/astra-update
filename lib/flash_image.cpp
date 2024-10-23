@@ -34,12 +34,16 @@ FlashImageType StringToFlashImageType(const std::string& str) {
     }
 }
 
-std::unique_ptr<FlashImage> FlashImage::FlashImageFactory(std::string manifest)
+std::unique_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath, std::string manifest)
 {
     FlashImageType flashImageType;
     std::string bootFirmware;
     std::string chipName;
     std::string boardName;
+
+    if (manifest == "") {
+        manifest = imagePath + "/manifest.yaml";
+    }
 
     try {
         YAML::Node manifestNode = YAML::LoadFile(manifest);
@@ -63,7 +67,7 @@ std::unique_ptr<FlashImage> FlashImage::FlashImageFactory(std::string manifest)
         case FLASH_IMAGE_TYPE_NAND:
             //return std::make_unique<NandFlashImage>();
         case FLASH_IMAGE_TYPE_EMMC:
-            return std::make_unique<EmmcFlashImage>(bootFirmware, chipName, boardName);
+            return std::make_unique<EmmcFlashImage>(imagePath, bootFirmware, chipName, boardName);
         default:
             throw std::invalid_argument("Unknown FlashImageType");
     }

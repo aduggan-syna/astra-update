@@ -1,6 +1,6 @@
 #include "emmc_flash_image.hpp"
 
-int EmmcFlashImage::Load(std::string path)
+int EmmcFlashImage::Load()
 {
     return 0;
 }

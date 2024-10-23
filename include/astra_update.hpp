@@ -2,13 +2,16 @@
 
 #include <string>
 #include <memory>
+#include <functional>
 
 class AstraUpdate {
 public:
-    AstraUpdate(std::string bootFirmwarePath, std::string osImage);
+    AstraUpdate(std::string flashImage, std::string bootFirmwarePath);
     ~AstraUpdate();
 
-    int Run();
+    void RegisterStatusCallback(std::function<void(int status, int progress, const std::string& message)> callback);
+
+    int Update();
 
 private:
     class AstraUpdateImpl;

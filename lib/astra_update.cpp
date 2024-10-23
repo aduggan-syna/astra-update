@@ -5,8 +5,8 @@
 
 class AstraUpdate::AstraUpdateImpl {
 public:
-    AstraUpdateImpl(std::string bootFirmwarePath, std::string osImage)
-        : m_bootFirmwarePath{bootFirmwarePath}, m_osImage{osImage} {
+    AstraUpdateImpl(std::string flashImage, std::string bootFirmwarePath)
+        : m_flashImage{flashImage}, m_bootFirmwarePath{bootFirmwarePath} {
         m_bootFirmwares = new BootFirmwareCollection{bootFirmwarePath};
         m_transport = new USBTransport{};
     }
@@ -16,7 +16,7 @@ public:
         delete m_transport;
     }
 
-    int Run() {
+    int Update() {
         m_bootFirmwares->Load();
 
         if (m_transport->Init() < 0) {
@@ -44,16 +44,16 @@ public:
 
 private:
     std::string m_bootFirmwarePath;
-    std::string m_osImage;
+    std::string m_flashImage;
     BootFirmwareCollection* m_bootFirmwares;
     USBTransport* m_transport;
 };
 
-AstraUpdate::AstraUpdate(std::string bootFirmwarePath, std::string osImage)
-    : pImpl{std::make_unique<AstraUpdateImpl>(bootFirmwarePath, osImage)} {}
+AstraUpdate::AstraUpdate(std::string flashImage, std::string bootFirmwarePath)
+    : pImpl{std::make_unique<AstraUpdateImpl>(flashImage, bootFirmwarePath)} {}
 
 AstraUpdate::~AstraUpdate() = default;
 
-int AstraUpdate::Run() {
-    return pImpl->Run();
+int AstraUpdate::Update() {
+    return pImpl->Update();
 }
