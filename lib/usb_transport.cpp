@@ -98,7 +98,12 @@ int LIBUSB_CALL USBTransport::HotplugEventCallback(libusb_context *ctx, libusb_d
         std::cout << "  bNumConfigurations: " << static_cast<int>(desc.bNumConfigurations) << std::endl;
 
         std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device);
-        transport->m_deviceAddedCallback(std::move(usbDevice));
+        try {
+            transport->m_deviceAddedCallback(std::move(usbDevice));
+        } catch (const std::exception& e) {
+            std::cerr << "Error: " << e.what() << std::endl;
+            return 1;
+        }
     }
 
     return 0;
