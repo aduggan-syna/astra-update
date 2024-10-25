@@ -34,7 +34,7 @@ FlashImageType StringToFlashImageType(const std::string& str) {
     }
 }
 
-std::unique_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath, std::string manifest)
+std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath, std::string manifest)
 {
     FlashImageType flashImageType;
     std::string bootFirmware;
@@ -67,7 +67,7 @@ std::unique_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
         case FLASH_IMAGE_TYPE_NAND:
             //return std::make_unique<NandFlashImage>();
         case FLASH_IMAGE_TYPE_EMMC:
-            return std::make_unique<EmmcFlashImage>(imagePath, bootFirmware, chipName, boardName);
+            return std::make_shared<EmmcFlashImage>(imagePath, bootFirmware, chipName, boardName);
         default:
             throw std::invalid_argument("Unknown FlashImageType");
     }

@@ -1,43 +1,41 @@
 #include <iostream>
+#include <memory>
+#include "astra_device.hpp"
 #include "astra_update.hpp"
 #include "boot_firmware_collection.hpp"
 #include "usb_transport.hpp"
 
 class AstraUpdate::AstraUpdateImpl {
 public:
-    AstraUpdateImpl(std::string flashImage, std::string bootFirmwarePath)
-        : m_flashImage{flashImage}, m_bootFirmwarePath{bootFirmwarePath} {
-        m_bootFirmwares = new BootFirmwareCollection{bootFirmwarePath};
-        m_transport = new USBTransport{};
+    AstraUpdateImpl() : m_bootFirmwarePath{"/home/aduggan/astra_boot"}
+    {
     }
 
     ~AstraUpdateImpl() {
-        delete m_bootFirmwares;
-        delete m_transport;
     }
 
-    int Update() {
-        m_bootFirmwares->Load();
+    int Update(std::shared_ptr<FlashImage> flashImage, std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback)
+    {
+        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection(m_bootFirmwarePath);
+        bootFirmwareCollection.Load();
 
-        if (m_transport->Init() < 0) {
+        try {
+            m_bootFirmware = bootFirmwareCollection.GetFirmware(flashImage->GetBootFirmwareId());
+        } catch (const std::exception& e) {
+            std::cerr << "Error: " << e.what() << std::endl;
+            return 1;
+        }
+
+        if (m_transport.Init(m_bootFirmware.GetVendorId(), m_bootFirmware.GetProductId(), 
+                std::bind(&AstraUpdateImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
+        {
             return 1;
         }
 
         std::cout << "USB transport initialized successfully" << std::endl;
 
-        std::vector<std::unique_ptr<USBDevice>> devices = m_transport->SearchForDevices(m_bootFirmwares->GetDeviceIDs());
+        // block waiting for a device to be added
 
-        if (devices.empty()) {
-            std::cerr << "No devices found" << std::endl;
-            return 1;
-        }
-
-        for (const auto& device : devices) {
-            if (!device->Open()) {
-                std::cerr << "Failed to open device" << std::endl;
-                return 1;
-            }
-        }
 
         return 0;
     }
@@ -45,15 +43,24 @@ public:
 private:
     std::string m_bootFirmwarePath;
     std::string m_flashImage;
-    BootFirmwareCollection* m_bootFirmwares;
-    USBTransport* m_transport;
+    std::vector<std::shared_ptr<AstraDevice>> m_devices;
+    std::function<void(std::shared_ptr<AstraDevice>)> m_deviceAddedCallback;
+    AstraBootFirmware m_bootFirmware;
+    USBTransport m_transport;
+
+    void DeviceAddedCallback(std::unique_ptr<USBDevice> device) {
+        std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device));
+        m_devices.push_back(astraDevice);
+        m_deviceAddedCallback(astraDevice);
+    }
 };
 
-AstraUpdate::AstraUpdate(std::string flashImage, std::string bootFirmwarePath)
-    : pImpl{std::make_unique<AstraUpdateImpl>(flashImage, bootFirmwarePath)} {}
+AstraUpdate::AstraUpdate() : pImpl{std::make_unique<AstraUpdateImpl>()} {}
 
 AstraUpdate::~AstraUpdate() = default;
 
-int AstraUpdate::Update() {
-    return pImpl->Update();
+int AstraUpdate::Update(std::shared_ptr<FlashImage> flashImage,
+     std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback)
+{
+    return pImpl->Update(flashImage, deviceAddedCallback);
 }

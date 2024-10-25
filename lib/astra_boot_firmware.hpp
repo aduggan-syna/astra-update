@@ -12,7 +12,7 @@ enum AstraSecureBootVersion {
 class AstraBootFirmware
 {
 public:
-    AstraBootFirmware(std::string path) : m_path{path}
+    AstraBootFirmware(std::string path = "") : m_path{path}
     {}
     ~AstraBootFirmware();
 
@@ -22,6 +22,7 @@ public:
     uint16_t GetProductId() const { return m_productId; }
     std::string GetChipName() const { return m_chipName; }
     std::string GetBoardName() const { return m_boardName; }
+    std::string GetID() const { return m_id; }
     enum AstraSecureBootVersion GetSecureBootVersion() const { return m_secureBootVersion; }
 
 private:

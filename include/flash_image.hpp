@@ -12,8 +12,8 @@ enum FlashImageType {
 class FlashImage
 {
 public:
-    FlashImage(FlashImageType flashImageType, std::string imagePath, std::string bootFirmware, std::string chipName,
-        std::string boardName) : m_flashImageType{flashImageType}, m_imagePath{imagePath}, m_bootFirmware{bootFirmware},
+    FlashImage(FlashImageType flashImageType, std::string imagePath, std::string bootFirmwareId, std::string chipName,
+        std::string boardName) : m_flashImageType{flashImageType}, m_imagePath{imagePath}, m_bootFirmwareId{bootFirmwareId},
         m_chipName{chipName}, m_boardName{boardName}
     {}
     virtual ~FlashImage()
@@ -21,15 +21,15 @@ public:
 
     virtual int Load() = 0;
 
-    std::string GetBootFirmware() const { return m_bootFirmware; }
+    std::string GetBootFirmwareId() const { return m_bootFirmwareId; }
     std::string GetChipName() const { return m_chipName; }
     std::string GetBoardName() const { return m_boardName; }
 
-    static std::unique_ptr<FlashImage> FlashImageFactory(std::string imagePath, std::string manifest="");
+    static std::shared_ptr<FlashImage> FlashImageFactory(std::string imagePath, std::string manifest="");
 
 protected:
     FlashImageType m_flashImageType;
-    std::string m_bootFirmware;
+    std::string m_bootFirmwareId;
     std::string m_chipName;
     std::string m_boardName;
     std::string m_imagePath;

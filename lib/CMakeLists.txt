@@ -26,6 +26,7 @@ file(GLOB SRC astra_boot_firmware.cpp
                 console.cpp
                 emmc_flash_image.cpp
                 flash_image.cpp
+                image.cpp
                 usb_device.cpp
                 usb_transport.cpp
 )

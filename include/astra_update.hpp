@@ -4,14 +4,16 @@
 #include <memory>
 #include <functional>
 
+#include "astra_device.hpp"
+#include "flash_image.hpp"
+
 class AstraUpdate {
 public:
-    AstraUpdate(std::string flashImage, std::string bootFirmwarePath);
+    AstraUpdate();
     ~AstraUpdate();
 
-    void RegisterStatusCallback(std::function<void(int status, int progress, const std::string& message)> callback);
-
-    int Update();
+    int Update(std::shared_ptr<FlashImage> flashImage,
+        std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback);
 
 private:
     class AstraUpdateImpl;

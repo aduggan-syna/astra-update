@@ -51,6 +51,17 @@ std::vector<std::tuple<uint16_t, uint16_t>> BootFirmwareCollection::GetDeviceIDs
     return deviceIds;
 }
 
+AstraBootFirmware BootFirmwareCollection::GetFirmware(std::string id) const
+{
+    for (const auto& firmware : m_firmwares) {
+        if (firmware.GetID() == id) {
+            return firmware;
+        }
+    }
+
+    throw std::runtime_error("Firmware not found");
+}
+
 BootFirmwareCollection::~BootFirmwareCollection()
 {
 }
