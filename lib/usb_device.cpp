@@ -51,7 +51,7 @@ bool USBDevice::Open()
     std::cout << "  MaxPower: " << static_cast<int>(m_config->MaxPower) << std::endl;
 
     ret = libusb_detach_kernel_driver(m_handle, 0);
-    if (ret < 0) {
+    if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
         std::cerr << "Failed to detach kernel driver: " << libusb_error_name(ret) << std::endl;
         return false;
     }

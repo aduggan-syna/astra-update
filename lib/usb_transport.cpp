@@ -6,6 +6,7 @@
 
 USBTransport::~USBTransport() {
     m_running = false;
+    libusb_interrupt_event_handler(m_ctx);
     if (m_deviceMonitorThread.joinable()) {
         m_deviceMonitorThread.join();
     }
@@ -24,7 +25,7 @@ void USBTransport::DeviceMonitorThread()
 {
     int ret;
 
-    while (!m_running) {
+    while (m_running) {
         ret = libusb_handle_events(m_ctx);
         if (ret < 0) {
             std::cerr << "Failed to handle events: " << libusb_error_name(ret) << std::endl;
@@ -98,11 +99,15 @@ int LIBUSB_CALL USBTransport::HotplugEventCallback(libusb_context *ctx, libusb_d
         std::cout << "  bNumConfigurations: " << static_cast<int>(desc.bNumConfigurations) << std::endl;
 
         std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device);
-        try {
-            transport->m_deviceAddedCallback(std::move(usbDevice));
-        } catch (const std::exception& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
-            return 1;
+        if (transport->m_deviceAddedCallback) {
+            try {
+                transport->m_deviceAddedCallback(std::move(usbDevice));
+            } catch (const std::bad_function_call& e) {
+                std::cerr << "Error: " << e.what() << std::endl;
+                return 1;
+            }
+        } else {
+            std::cerr << "No device added callback" << std::endl;
         }
     }
 
