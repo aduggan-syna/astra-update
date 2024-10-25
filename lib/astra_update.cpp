@@ -8,6 +8,7 @@
 #include "astra_update.hpp"
 #include "boot_firmware_collection.hpp"
 #include "usb_transport.hpp"
+#include "image.hpp"
 
 class AstraUpdate::AstraUpdateImpl {
 public:

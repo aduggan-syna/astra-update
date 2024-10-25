@@ -5,6 +5,7 @@
 #include "flash_image.hpp"
 #include "console.hpp"
 #include "usb_device.hpp"
+#include "image.hpp"
 
 class AstraDevice::AstraDeviceImpl {
 public:

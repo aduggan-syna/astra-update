@@ -2,13 +2,15 @@
 #include <yaml-cpp/yaml.h>
 #include <stdexcept>
 #include <iomanip>
+#include <filesystem>
 
 #include "astra_boot_firmware.hpp"
+#include "image.hpp"
 
-int AstraBootFirmware::Load()
+int AstraBootFirmware::LoadManifest(std::string manifestPath)
 {
     try {
-        YAML::Node manifest = YAML::LoadFile(m_path + "/manifest.yaml");
+        YAML::Node manifest = YAML::LoadFile(manifestPath);
 
         m_id = manifest["id"].as<std::string>();
         m_chipName = manifest["chip"].as<std::string>();
@@ -29,6 +31,30 @@ int AstraBootFirmware::Load()
         std::cerr << "Error: " << e.what() << std::endl;
         return -1;
     }
+
+    return 0;
+}
+
+int AstraBootFirmware::Load()
+{
+    int ret;
+
+    if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path)) {
+        for (const auto& entry : std::filesystem::directory_iterator(m_path)) {
+                std::cout << "Found file: " << entry.path() << std::endl;
+                if (entry.path().filename().string() == "manifest.yaml") {
+                    ret = LoadManifest(entry.path().string());
+                    if (ret < 0) {
+                        return ret;
+                    }
+                } else {
+                    m_images.push_back(std::make_shared<Image>(entry.path().string()));
+                }
+            }
+        }
+
+    m_directoryName = std::filesystem::path(m_path).filename().string();
+    std::cout << "Loaded boot firmware: " << m_directoryName << std::endl;
 
     return 0;
 }

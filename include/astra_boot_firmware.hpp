@@ -9,6 +9,8 @@ enum AstraSecureBootVersion {
     ASTRA_SECURE_BOOT_V3,
 };
 
+class Image;
+
 class AstraBootFirmware
 {
 public:
@@ -27,11 +29,14 @@ public:
 
 private:
     std::string m_path;
-    std::vector<std::string> m_files;
+    std::string m_directoryName;
+    std::vector<std::shared_ptr<Image>> m_images;
     std::string m_id;
     std::string m_chipName;
     std::string m_boardName;
     enum AstraSecureBootVersion m_secureBootVersion;
     uint16_t m_vendorId;
     uint16_t m_productId;
+
+    int LoadManifest(std::string manifestPath);
 };

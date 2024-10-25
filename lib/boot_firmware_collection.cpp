@@ -1,6 +1,8 @@
 #include <filesystem>
 #include <iostream>
 #include "boot_firmware_collection.hpp"
+#include "astra_boot_firmware.hpp"
+#include "image.hpp"
 
 void BootFirmwareCollection::Load()
 {
