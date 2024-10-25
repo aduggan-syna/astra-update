@@ -12,8 +12,9 @@ public:
     AstraUpdate();
     ~AstraUpdate();
 
-    int Update(std::shared_ptr<FlashImage> flashImage,
+    int StartDeviceSearch(uint16_t vendorId, uint16_t productId,
         std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback);
+    void StopDeviceSearch();
 
 private:
     class AstraUpdateImpl;

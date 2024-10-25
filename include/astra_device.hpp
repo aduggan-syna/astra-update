@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <functional>
 
+#include "astra_boot_firmware.hpp"
+#include "flash_image.hpp"
+
 enum AstraDeviceState {
     ASTRA_DEVICE_STATE_OPENED,
     ASTRA_DEVICE_STATE_CLOSED,
@@ -24,6 +27,9 @@ public:
     ~AstraDevice();
 
     int Open(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback);
+    int Boot(std::shared_ptr<AstraBootFirmware> firmware);
+    int Update(std::shared_ptr<FlashImage> image);
+    int Reset();
 
 private:
     class AstraDeviceImpl;

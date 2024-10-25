@@ -5,17 +5,8 @@
 #include "usb_transport.hpp"
 
 USBTransport::~USBTransport() {
-    m_running = false;
-    libusb_interrupt_event_handler(m_ctx);
-    if (m_deviceMonitorThread.joinable()) {
-        m_deviceMonitorThread.join();
-    }
+    Shutdown();
 
-    if (m_callbackHandle) {
-        libusb_hotplug_deregister_callback(m_ctx, m_callbackHandle);
-        m_callbackHandle = 0;
-    }
-    
     if (m_ctx) {
         libusb_exit(m_ctx);
     }
@@ -64,6 +55,23 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
     m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
 
     return ret;
+}
+
+void USBTransport::Shutdown()
+{
+    if (m_running) {
+
+        m_running = false;
+        libusb_interrupt_event_handler(m_ctx);
+        if (m_deviceMonitorThread.joinable()) {
+            m_deviceMonitorThread.join();
+        }
+
+        if (m_callbackHandle) {
+            libusb_hotplug_deregister_callback(m_ctx, m_callbackHandle);
+            m_callbackHandle = 0;
+        }
+    }
 }
 
 int LIBUSB_CALL USBTransport::HotplugEventCallback(libusb_context *ctx, libusb_device *device,

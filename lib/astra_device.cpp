@@ -1,6 +1,8 @@
 #include <iostream>
 
 #include "astra_device.hpp"
+#include "astra_boot_firmware.hpp"
+#include "flash_image.hpp"
 #include "console.hpp"
 #include "usb_device.hpp"
 
@@ -25,6 +27,45 @@ public:
         return 0;
     }
 
+    int Boot(std::shared_ptr<AstraBootFirmware> firmware) {
+        int ret;
+
+        m_statusCallback(ASTRA_DEVICE_STATE_BOOT_START, 0, "Booting device");
+
+#if 0
+        ret = m_device->Boot(firmware);
+        if (ret < 0) {
+            m_statusCallback(ASTRA_DEVICE_STATE_BOOT_FAIL, 0, "Failed to boot device");
+            return ret;
+        }
+#endif
+
+        m_statusCallback(ASTRA_DEVICE_STATE_BOOT_DONE, 100, "Device booted");
+
+        return 0;
+    }
+
+    int Update(std::shared_ptr<FlashImage> image) {
+        int ret;
+
+        m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_START, 0, "Updating device");
+
+#if 0
+        ret = m_device->Update(image);
+        if (ret < 0) {
+            m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_FAIL, 0, "Failed to update device");
+            return ret;
+        }
+#endif
+        m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_DONE, 100, "Device updated");
+
+        return 0;
+    }
+
+    int Reset() {
+        return 0;
+    }
+
 private:
     std::unique_ptr<USBDevice> m_device;
     AstraDeviceState m_state;
@@ -38,4 +79,16 @@ AstraDevice::~AstraDevice() = default;
 
 int AstraDevice::Open(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
     return pImpl->Open(statusCallback);
+}
+
+int AstraDevice::Boot(std::shared_ptr<AstraBootFirmware> firmware) {
+    return pImpl->Boot(firmware);
+}
+
+int AstraDevice::Update(std::shared_ptr<FlashImage> image) {
+    return pImpl->Update(image);
+}
+
+int AstraDevice::Reset() {
+    return pImpl->Reset();
 }

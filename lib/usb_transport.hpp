@@ -17,6 +17,7 @@ public:
     ~USBTransport();
 
     int Init(uint16_t vendorId, uint16_t productId, std::function<void(std::unique_ptr<USBDevice>)> deviceAddedCallback);
+    void Shutdown();
 
 protected:
     libusb_context *m_ctx;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 #include "astra_boot_firmware.hpp"
 
 class BootFirmwareCollection
@@ -12,12 +13,10 @@ public:
 
     void Load();
 
-    std::vector<AstraBootFirmware> GetSupportedFirmwares(uint16_t vendorId, uint16_t productId) const;
     std::vector<std::tuple<uint16_t, uint16_t>> GetDeviceIDs() const;
-
-    AstraBootFirmware GetFirmware(std::string id) const;
+    std::shared_ptr<AstraBootFirmware> GetFirmware(std::string id) const;
 
 private:
     std::string m_path;
-    std::vector<AstraBootFirmware> m_firmwares;
+    std::vector<std::shared_ptr<AstraBootFirmware>> m_firmwares;
 };

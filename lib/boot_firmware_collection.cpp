@@ -20,24 +20,11 @@ void BootFirmwareCollection::Load()
                         continue;
                     }
 
-                    m_firmwares.push_back(firmware);
+                    m_firmwares.push_back(std::make_shared<AstraBootFirmware>(firmware));
                 }
             }
         }
     }
-}
-
-std::vector<AstraBootFirmware> BootFirmwareCollection::GetSupportedFirmwares(uint16_t vendorId, uint16_t productId) const
-{
-    std::vector<AstraBootFirmware> firmwares;
-
-    for (const auto& firmware : m_firmwares) {
-        if (firmware.GetVendorId() == vendorId && firmware.GetProductId() == productId) {
-            firmwares.push_back(firmware);
-        }
-    }
-
-    return firmwares;
 }
 
 std::vector<std::tuple<uint16_t, uint16_t>> BootFirmwareCollection::GetDeviceIDs() const
@@ -45,16 +32,16 @@ std::vector<std::tuple<uint16_t, uint16_t>> BootFirmwareCollection::GetDeviceIDs
     std::vector<std::tuple<uint16_t, uint16_t>> deviceIds;
 
     for (const auto& firmware : m_firmwares) {
-        deviceIds.push_back(std::make_tuple(firmware.GetVendorId(), firmware.GetProductId()));
+        deviceIds.push_back(std::make_tuple(firmware->GetVendorId(), firmware->GetProductId()));
     }
 
     return deviceIds;
 }
 
-AstraBootFirmware BootFirmwareCollection::GetFirmware(std::string id) const
+std::shared_ptr<AstraBootFirmware> BootFirmwareCollection::GetFirmware(std::string id) const
 {
     for (const auto& firmware : m_firmwares) {
-        if (firmware.GetID() == id) {
+        if (firmware->GetID() == id) {
             return firmware;
         }
     }

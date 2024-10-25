@@ -1,5 +1,9 @@
 #include <iostream>
+#include <queue>
 #include <memory>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 #include "astra_device.hpp"
 #include "astra_update.hpp"
 #include "boot_firmware_collection.hpp"
@@ -7,28 +11,19 @@
 
 class AstraUpdate::AstraUpdateImpl {
 public:
-    AstraUpdateImpl() : m_bootFirmwarePath{"/home/aduggan/astra_boot"}
+    AstraUpdateImpl()
     {
     }
 
     ~AstraUpdateImpl() {
     }
 
-    int Update(std::shared_ptr<FlashImage> flashImage, std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback)
+    int StartDeviceSearch(uint16_t vendorId, uint16_t productId,
+        std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback)
     {
         m_deviceAddedCallback = deviceAddedCallback;
 
-        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection(m_bootFirmwarePath);
-        bootFirmwareCollection.Load();
-
-        try {
-            m_bootFirmware = bootFirmwareCollection.GetFirmware(flashImage->GetBootFirmwareId());
-        } catch (const std::exception& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
-            return 1;
-        }
-
-        if (m_transport.Init(m_bootFirmware.GetVendorId(), m_bootFirmware.GetProductId(), 
+        if (m_transport.Init(vendorId, productId,
                 std::bind(&AstraUpdateImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
         {
             return 1;
@@ -36,27 +31,22 @@ public:
 
         std::cout << "USB transport initialized successfully" << std::endl;
 
-        // block waiting for a device to be added
-        while (m_devices.size() == 0) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-
-        std::cout << "Update exiting" << std::endl;
         return 0;
     }
 
+    void StopDeviceSearch()
+    {
+       m_transport.Shutdown();
+    }
+
 private:
-    std::string m_bootFirmwarePath;
-    std::string m_flashImage;
     USBTransport m_transport;
-    std::vector<std::shared_ptr<AstraDevice>> m_devices;
     std::function<void(std::shared_ptr<AstraDevice>)> m_deviceAddedCallback;
-    AstraBootFirmware m_bootFirmware;
 
     void DeviceAddedCallback(std::unique_ptr<USBDevice> device) {
         std::cout << "Device added AstraUpdateImpl::DeviceAddedCallback" << std::endl;
         std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device));
-        m_devices.push_back(astraDevice);
+
         m_deviceAddedCallback(astraDevice);
     }
 };
@@ -65,8 +55,13 @@ AstraUpdate::AstraUpdate() : pImpl{std::make_unique<AstraUpdateImpl>()} {}
 
 AstraUpdate::~AstraUpdate() = default;
 
-int AstraUpdate::Update(std::shared_ptr<FlashImage> flashImage,
+int AstraUpdate::StartDeviceSearch(uint16_t vendorId, uint16_t productId,
      std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback)
 {
-    return pImpl->Update(flashImage, deviceAddedCallback);
+    return pImpl->StartDeviceSearch(vendorId, productId, deviceAddedCallback);
+}
+
+void AstraUpdate::StopDeviceSearch()
+{
+    return pImpl->StopDeviceSearch();
 }
