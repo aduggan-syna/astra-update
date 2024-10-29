@@ -10,7 +10,10 @@ public:
     virtual ~Device()
     {}
 
-    virtual bool Open() = 0;
+    virtual bool Open()
+    {
+        return false;
+    }
     virtual void Close() = 0;
 
     virtual bool Read(uint8_t *data, size_t size) = 0;

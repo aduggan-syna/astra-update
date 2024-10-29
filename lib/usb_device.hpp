@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <thread>
 #include <atomic>
+#include <functional>
 #include <libusb-1.0/libusb.h>
 
 #include "device.hpp"
@@ -12,7 +13,7 @@ public:
     USBDevice(libusb_device *device);
     ~USBDevice();
 
-    bool Open() override;
+    bool Open(std::function<void(uint8_t *buf, size_t size)> interruptCallback);
     void Close() override;
 
     bool Read(uint8_t *data, size_t size) override;
@@ -34,7 +35,9 @@ private:
     size_t m_interruptOutSize;
     uint8_t *m_interruptInBuffer;
     uint8_t *m_interruptOutBuffer;
-    libusb_transfer_cb_fn m_inputInterruptCallback;
+
+    std::function<void(uint8_t *buf, size_t size)> m_inputInterruptCallback;
 
     void DeviceThread();
+    static void LIBUSB_CALL HandleInputInterruptTransfer(struct libusb_transfer *transfer);
 };

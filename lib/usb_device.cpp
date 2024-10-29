@@ -20,11 +20,17 @@ USBDevice::~USBDevice()
     libusb_unref_device(m_device);
 }
 
-bool USBDevice::Open()
+bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCallback)
 {
     if (m_handle) {
         return true;
     }
+
+    if (!interruptCallback) {
+        return false;
+    }
+
+    m_inputInterruptCallback = interruptCallback;
 
     int ret = libusb_open(m_device, &m_handle);
     if (ret < 0) {
@@ -123,7 +129,7 @@ bool USBDevice::Open()
     m_interruptOutBuffer = new uint8_t[m_interruptOutSize];
 
     libusb_fill_interrupt_transfer(m_inputInterruptXfer, m_handle, m_interruptInEndpoint,
-        m_interruptInBuffer, m_interruptInSize, m_inputInterruptCallback, this, 0);
+        m_interruptInBuffer, m_interruptInSize, HandleInputInterruptTransfer, this, 0);
 
     m_deviceThread = std::thread(&USBDevice::DeviceThread, this);
 
@@ -197,5 +203,16 @@ void USBDevice::DeviceThread()
             std::cerr << "Failed to handle events: " << libusb_error_name(ret) << std::endl;
             break;
         }
+    }
+}
+
+void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)
+{
+    USBDevice *device = static_cast<USBDevice*>(transfer->user_data);
+    
+    if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
+        device->m_inputInterruptCallback(transfer->buffer, transfer->actual_length);
+    } else {
+        std::cerr << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << std::endl;
     }
 }

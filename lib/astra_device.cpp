@@ -9,7 +9,7 @@
 
 class AstraDevice::AstraDeviceImpl {
 public:
-    AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_device{std::move(device)}
+    AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_usbDevice{std::move(device)}
     {}
 
     void SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
@@ -19,7 +19,7 @@ public:
     int Open() {
         int ret;
 
-        ret = m_device->Open();
+        ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::HandleInterrupt, this, std::placeholders::_1, std::placeholders::_2));
         if (ret < 0) {
             std::cerr << "Failed to open device" << std::endl;
             return ret;
@@ -36,7 +36,7 @@ public:
         m_statusCallback(ASTRA_DEVICE_STATE_BOOT_START, 0, "Booting device");
 
 #if 0
-        ret = m_device->Boot(firmware);
+        ret = m_usbDevice->Boot(firmware);
         if (ret < 0) {
             m_statusCallback(ASTRA_DEVICE_STATE_BOOT_FAIL, 0, "Failed to boot device");
             return ret;
@@ -54,7 +54,7 @@ public:
         m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_START, 0, "Updating device");
 
 #if 0
-        ret = m_device->Update(image);
+        ret = m_usbDevice->Update(image);
         if (ret < 0) {
             m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_FAIL, 0, "Failed to update device");
             return ret;
@@ -70,9 +70,17 @@ public:
     }
 
 private:
-    std::unique_ptr<USBDevice> m_device;
+    std::unique_ptr<USBDevice> m_usbDevice;
     AstraDeviceState m_state;
     std::function<void(AstraDeviceState, int progress, std::string message)> m_statusCallback;
+
+    void HandleInterrupt(uint8_t *buf, size_t size) {
+        std::cout << "Interrupt received" << std::endl;
+
+        // Handle Image Request
+
+        // Handle Console Data
+    }
 };
 
 AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device) : 
