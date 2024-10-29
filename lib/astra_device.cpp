@@ -12,10 +12,12 @@ public:
     AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_device{std::move(device)}
     {}
 
-    int Open(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
-        int ret;
-        
+    void SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
         m_statusCallback = statusCallback;
+    }
+
+    int Open() {
+        int ret;
 
         ret = m_device->Open();
         if (ret < 0) {
@@ -78,8 +80,12 @@ AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device) :
 
 AstraDevice::~AstraDevice() = default;
 
-int AstraDevice::Open(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
-    return pImpl->Open(statusCallback);
+void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
+    pImpl->SetStatusCallback(statusCallback);
+}
+
+int AstraDevice::Open() {
+    return pImpl->Open();
 }
 
 int AstraDevice::Boot(std::shared_ptr<AstraBootFirmware> firmware) {

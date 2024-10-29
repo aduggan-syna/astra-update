@@ -6,8 +6,6 @@
 #include "astra_update.hpp"
 #include "flash_image.hpp"
 #include "astra_device.hpp"
-#include "boot_firmware_collection.hpp"
-#include "astra_boot_firmware.hpp"
 
 std::queue<std::shared_ptr<AstraDevice>> devices;
 std::condition_variable devicesCV;
@@ -31,14 +29,7 @@ int main() {
 
     flashImage = FlashImage::FlashImageFactory("/home/aduggan/sl1680_v1.3.0");
 
-    BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/home/aduggan/astra_boot");
-    bootFirmwareCollection.Load();
-
-    std::shared_ptr<AstraBootFirmware> firmware = bootFirmwareCollection.GetFirmware(flashImage->GetBootFirmwareId());
-    uint16_t vendorId = firmware->GetVendorId();
-    uint16_t productId = firmware->GetProductId();
-
-    int ret = update.StartDeviceSearch(vendorId, productId, DeviceAddedCallback);
+    int ret = update.StartDeviceSearch(flashImage, DeviceAddedCallback);
     if (ret < 0) {
         std::cerr << "Error initializing Astra Update" << std::endl;
         return 1;
@@ -52,19 +43,10 @@ int main() {
         devices.pop();
 
         if (device) {
-            if (device->Open(DeviceStatusCallback) < 0) {
-                std::cerr << "Failed to open device" << std::endl;
-            }
+            device->SetStatusCallback(DeviceStatusCallback);
 
-            if (device->Boot(firmware) < 0) {
-                std::cerr << "Failed to boot device" << std::endl;
-            }
-
-            if (device->Update(flashImage) < 0) {
-                std::cerr << "Failed to update device" << std::endl;
-            }
-
-            if (device->Reset() < 0) {
+            ret = update.UpdateDevice(device);
+            if (ret < 0) {
                 std::cerr << "Failed to update device" << std::endl;
             }
         }

@@ -26,7 +26,9 @@ public:
     AstraDevice(std::unique_ptr<USBDevice> device);
     ~AstraDevice();
 
-    int Open(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback);
+    void SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback);
+
+    int Open();
     int Boot(std::shared_ptr<AstraBootFirmware> firmware);
     int Update(std::shared_ptr<FlashImage> image);
     int Reset();
