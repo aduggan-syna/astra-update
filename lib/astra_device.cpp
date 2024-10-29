@@ -1,4 +1,8 @@
 #include <iostream>
+#include <memory>
+#include <functional>
+#include <condition_variable>
+#include <mutex>
 
 #include "astra_device.hpp"
 #include "astra_boot_firmware.hpp"
@@ -30,7 +34,7 @@ public:
         return 0;
     }
 
-    int Boot(std::shared_ptr<AstraBootFirmware> firmware) {
+    int Boot(AstraBootFirmware firmware) {
         int ret;
 
         m_statusCallback(ASTRA_DEVICE_STATE_BOOT_START, 0, "Booting device");
@@ -74,12 +78,23 @@ private:
     AstraDeviceState m_state;
     std::function<void(AstraDeviceState, int progress, std::string message)> m_statusCallback;
 
+    std::condition_variable imageRequestCV;
+    std::mutex imageRequestMutex;
+
     void HandleInterrupt(uint8_t *buf, size_t size) {
         std::cout << "Interrupt received" << std::endl;
 
         // Handle Image Request
 
         // Handle Console Data
+    }
+
+    void SendImages() {
+        // Wait for image request
+
+        // Find image in vector of images
+
+        // Send block and wait for next request
     }
 };
 
@@ -96,7 +111,7 @@ int AstraDevice::Open() {
     return pImpl->Open();
 }
 
-int AstraDevice::Boot(std::shared_ptr<AstraBootFirmware> firmware) {
+int AstraDevice::Boot(AstraBootFirmware &firmware) {
     return pImpl->Boot(firmware);
 }
 

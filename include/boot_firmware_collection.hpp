@@ -14,7 +14,7 @@ public:
     void Load();
 
     std::vector<std::tuple<uint16_t, uint16_t>> GetDeviceIDs() const;
-    std::shared_ptr<AstraBootFirmware> GetFirmware(std::string id) const;
+    AstraBootFirmware &GetFirmware(std::string id) const;
 
 private:
     std::string m_path;

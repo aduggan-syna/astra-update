@@ -29,8 +29,8 @@ public:
         bootFirmwareCollection.Load();
 
         m_firmware = bootFirmwareCollection.GetFirmware(flashImage->GetBootFirmwareId());
-        uint16_t vendorId = m_firmware->GetVendorId();
-        uint16_t productId = m_firmware->GetProductId();
+        uint16_t vendorId = m_firmware.GetVendorId();
+        uint16_t productId = m_firmware.GetProductId();
 
         if (m_transport.Init(vendorId, productId,
                 std::bind(&AstraUpdateImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
@@ -50,21 +50,8 @@ public:
 
     int UpdateDevice(std::shared_ptr<AstraDevice> device)
     {
-        if (OpenDevice(device) < 0) {
-            std::cerr << "Failed to open device" << std::endl;
-        }
-
-        if (BootDevice(device) < 0) {
-            std::cerr << "Failed to boot device" << std::endl;
-        }
-
-        if (DoUpdate(device) < 0) {
-            std::cerr << "Failed to update device" << std::endl;
-        }
-
-        if (ResetDevice(device) < 0) {
-            std::cerr << "Failed to update device" << std::endl;
-        }
+        std::thread updateThread(&AstraUpdateImpl::UpdateDeviceThread, this, device);
+        m_updateThreads.push_back(std::move(updateThread));
 
         return 0;
     }
@@ -79,7 +66,8 @@ private:
     std::function<void(std::shared_ptr<AstraDevice>)> m_deviceAddedCallback;
     std::shared_ptr<FlashImage> m_flashImage;
     std::string m_bootFirmwarePath;
-    std::shared_ptr<AstraBootFirmware> m_firmware;
+    AstraBootFirmware m_firmware;
+    std::vector<std::thread> m_updateThreads;
 
     void DeviceAddedCallback(std::unique_ptr<USBDevice> device) {
         std::cout << "Device added AstraUpdateImpl::DeviceAddedCallback" << std::endl;
@@ -88,31 +76,32 @@ private:
         m_deviceAddedCallback(astraDevice);
     }
 
-    int OpenDevice(std::shared_ptr<AstraDevice> device)
+    int UpdateDeviceThread(std::shared_ptr<AstraDevice> device)
     {
-        int ret = device->Open();
+        int ret;
+
+        ret = device->Open();
         if (ret < 0) {
             std::cerr << "Failed to open device" << std::endl;
+            return ret;
         }
 
-        return 0;
-    }
+        ret = device->Boot(m_firmware); 
+        if (ret < 0) {
+            std::cerr << "Failed to boot device" << std::endl;
+            return ret;
+        }
 
-    int BootDevice(std::shared_ptr<AstraDevice> device)
-    {
-        return 0;
-    }
+        ret = device->Update(m_flashImage);
+        if (ret < 0) {
+            std::cerr << "Failed to open device" << std::endl;
+            return ret;
+        }
 
-    int DoUpdate(std::shared_ptr<AstraDevice> device)
-    {
-        return 0;
-    }
-
-    int ResetDevice(std::shared_ptr<AstraDevice> device)
-    {
-         int ret = device->Reset();
+        ret = device->Reset();
         if (ret < 0) {
             std::cerr << "Failed to reset device" << std::endl;
+            return ret;
         }
 
         return 0;

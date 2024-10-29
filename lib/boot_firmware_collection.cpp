@@ -40,11 +40,11 @@ std::vector<std::tuple<uint16_t, uint16_t>> BootFirmwareCollection::GetDeviceIDs
     return deviceIds;
 }
 
-std::shared_ptr<AstraBootFirmware> BootFirmwareCollection::GetFirmware(std::string id) const
+AstraBootFirmware &BootFirmwareCollection::GetFirmware(std::string id) const
 {
     for (const auto& firmware : m_firmwares) {
         if (firmware->GetID() == id) {
-            return firmware;
+            return *firmware;
         }
     }
 
