@@ -31,6 +31,8 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
         std::cerr << "Failed to initialize libusb: " << libusb_error_name(ret) << std::endl;
     }
 
+    libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
+
     if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
         std::cerr << "Hotplug capability is not supported on this platform" << std::endl;
         return 1;
@@ -106,7 +108,7 @@ int LIBUSB_CALL USBTransport::HotplugEventCallback(libusb_context *ctx, libusb_d
         std::cout << "  iSerialNumber: " << static_cast<int>(desc.iSerialNumber) << std::endl;
         std::cout << "  bNumConfigurations: " << static_cast<int>(desc.bNumConfigurations) << std::endl;
 
-        std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device);
+        std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device, transport->m_ctx);
         if (transport->m_deviceAddedCallback) {
             try {
                 transport->m_deviceAddedCallback(std::move(usbDevice));

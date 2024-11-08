@@ -1,14 +1,17 @@
 #include <iostream>
 #include <cstddef>
+#include <iomanip>
 
 #include "usb_device.hpp"
 
-USBDevice::USBDevice(libusb_device *device)
+USBDevice::USBDevice(libusb_device *device, libusb_context *ctx)
 {
     m_device = libusb_ref_device(device);
+    m_ctx = ctx;
     m_handle = nullptr;
     m_config = nullptr;
     m_open = false;
+    m_bulkTransferTimeout = 0;
 }
 
 USBDevice::~USBDevice()
@@ -20,14 +23,14 @@ USBDevice::~USBDevice()
     libusb_unref_device(m_device);
 }
 
-bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCallback)
+int USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCallback)
 {
     if (m_handle) {
-        return true;
+        return 0;
     }
 
     if (!interruptCallback) {
-        return false;
+        return 1;
     }
 
     m_inputInterruptCallback = interruptCallback;
@@ -35,7 +38,7 @@ bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCal
     int ret = libusb_open(m_device, &m_handle);
     if (ret < 0) {
         std::cerr << "Failed to open USB device: " << libusb_error_name(ret) << std::endl;
-        return false;
+        return 1;
     }
 
     m_open = true;
@@ -43,7 +46,7 @@ bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCal
     ret = libusb_get_config_descriptor(libusb_get_device(m_handle), 0, &m_config);
     if (ret < 0) {
         std::cerr << "Failed to get config descriptor: " << libusb_error_name(ret) << std::endl;
-        return false;
+        return 1;
     }
 
     std::cout << "Configuration Descriptor:" << std::endl;
@@ -59,13 +62,13 @@ bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCal
     ret = libusb_detach_kernel_driver(m_handle, 0);
     if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
         std::cerr << "Failed to detach kernel driver: " << libusb_error_name(ret) << std::endl;
-        return false;
+        return 1;
     }
 
     ret = libusb_claim_interface(m_handle, 0);
     if (ret < 0) {
         std::cerr << "Failed to claim interface: " << libusb_error_name(ret) << std::endl;
-        return false;
+        return 1;
     }
 
     for (int i = 0; i < m_config->bNumInterfaces; ++i) {
@@ -97,18 +100,24 @@ bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCal
                     if (endpoint.bmAttributes == 3) {
                         m_interruptInSize = endpoint.wMaxPacketSize;
                         m_interruptInEndpoint = endpoint.bEndpointAddress;
+                    } else if (endpoint.bmAttributes == 2) {
+                        m_bulkInSize = endpoint.wMaxPacketSize;
+                        m_bulkInEndpoint = endpoint.bEndpointAddress;
                     }
                 } else {
                     if (endpoint.bmAttributes == 3) {
                         m_interruptOutSize = endpoint.wMaxPacketSize;
                         m_interruptOutEndpoint = endpoint.bEndpointAddress;
+                    } else if (endpoint.bmAttributes == 2) {
+                        m_bulkOutSize = endpoint.wMaxPacketSize;
+                        m_bulkOutEndpoint = endpoint.bEndpointAddress;
                     }
                 }
 
                 ret = libusb_clear_halt(m_handle, endpoint.bEndpointAddress);
                 if (ret < 0) {
                     std::cerr << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << std::endl;
-                    return false;
+                    return 1;
                 }
             }
         }
@@ -117,12 +126,12 @@ bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCal
     m_inputInterruptXfer = libusb_alloc_transfer(0);
     if (!m_inputInterruptXfer) {
         std::cerr << "Failed to allocate input interrupt transfer" << std::endl;
-        return false;
+        return 1;
     }
     m_outputInterruptXfer = libusb_alloc_transfer(0);
     if (!m_outputInterruptXfer) {
         std::cerr << "Failed to allocate output interrupt transfer" << std::endl;
-        return false;
+        return 1;
     }
 
     m_interruptInBuffer = new uint8_t[m_interruptInSize];
@@ -133,9 +142,14 @@ bool USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCal
 
     m_deviceThread = std::thread(&USBDevice::DeviceThread, this);
 
+    ret = libusb_submit_transfer(m_inputInterruptXfer);
+    if (ret < 0) {
+        std::cerr << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << std::endl;
+    }
+
     m_running = true;
 
-    return true;
+    return 0;
 }
 
 void USBDevice::Close()
@@ -143,10 +157,28 @@ void USBDevice::Close()
     if (m_running) {
 
         m_running = false;
-        libusb_interrupt_event_handler(nullptr);
+        libusb_interrupt_event_handler(m_ctx);
         if (m_deviceThread.joinable()) {
             m_deviceThread.join();
         }
+
+        if (m_inputInterruptXfer) {
+            libusb_cancel_transfer(m_inputInterruptXfer);
+            libusb_free_transfer(m_inputInterruptXfer);
+            m_inputInterruptXfer = nullptr;
+        }
+
+        if (m_outputInterruptXfer) {
+            libusb_cancel_transfer(m_outputInterruptXfer);
+            libusb_free_transfer(m_outputInterruptXfer);
+            m_outputInterruptXfer = nullptr;
+        }
+
+        delete[] m_interruptInBuffer;
+        m_interruptInBuffer = nullptr;
+
+        delete[] m_interruptOutBuffer;
+        m_interruptOutBuffer = nullptr;
     }
 
     if (m_handle) {
@@ -157,48 +189,53 @@ void USBDevice::Close()
     m_open = false;
 }
 
-bool USBDevice::Read(uint8_t *data, size_t size)
+int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
 {
     if (!m_open) {
-        return false;
+        return 1;
     }
 
-    int transferred;
-    int ret = libusb_bulk_transfer(m_handle, 0x81, data, size, &transferred, 1000);
+    std::cout << "Reading from USB device" << std::endl;
+    std::cout << "  Bulk In Endpoint: " << static_cast<int>(m_bulkInEndpoint) << std::endl;
+    int ret = libusb_bulk_transfer(m_handle, m_bulkInEndpoint, data, size, transferred, m_bulkTransferTimeout);
     if (ret < 0) {
         std::cerr << "Failed to read from USB device: " << libusb_error_name(ret) << std::endl;
-        return false;
+        return 1;
     }
 
-    return true;
+    return 0;
 }
 
-bool USBDevice::Write(const uint8_t *data, size_t size)
+int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
 {
     if (!m_open) {
-        return false;
+        return 1;
     }
 
-    int transferred;
-    int ret = libusb_bulk_transfer(m_handle, 0x01, const_cast<uint8_t*>(data), size, &transferred, 1000);
+    std::cout << "Writing to USB device" << std::endl;
+    std::cout << "  Bulk Out Endpoint: " << static_cast<int>(m_bulkOutEndpoint) << std::endl;
+    std::cout << "  Length: " << size << std::endl;
+    std::cout << "  Data: ";
+    for (size_t i = 0; i < 16 && i < size; ++i) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]) << " ";
+    }
+    std::cout << std::dec << std::endl;
+
+    int ret = libusb_bulk_transfer(m_handle, m_bulkOutEndpoint, const_cast<uint8_t*>(data), size, transferred, m_bulkTransferTimeout);
     if (ret < 0) {
         std::cerr << "Failed to write to USB device: " << libusb_error_name(ret) << std::endl;
-        return false;
+        return 1;
     }
 
-    return true;
+    return 0;
 }
 
 void USBDevice::DeviceThread()
 {
-    while (m_running) {
-        int ret = libusb_submit_transfer(m_inputInterruptXfer);
-        if (ret < 0) {
-            std::cerr << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << std::endl;
-            break;
-        }
+    int ret;
 
-        ret = libusb_handle_events(nullptr);
+    while (m_running) {
+        ret = libusb_handle_events(m_ctx);
         if (ret < 0) {
             std::cerr << "Failed to handle events: " << libusb_error_name(ret) << std::endl;
             break;
@@ -214,5 +251,11 @@ void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)
         device->m_inputInterruptCallback(transfer->buffer, transfer->actual_length);
     } else {
         std::cerr << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << std::endl;
+    }
+
+    std::cout << "Resubmitting input interrupt transfer" << std::endl;
+    int ret = libusb_submit_transfer(transfer);
+    if (ret < 0) {
+        std::cerr << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << std::endl;
     }
 }

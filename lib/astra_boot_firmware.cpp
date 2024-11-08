@@ -48,7 +48,7 @@ int AstraBootFirmware::Load()
                         return ret;
                     }
                 } else {
-                    m_images.push_back(std::make_shared<Image>(entry.path().string()));
+                    m_images.push_back(Image(entry.path().string()));
                 }
             }
         }

@@ -4,6 +4,8 @@
 #include <vector>
 #include <cstdint>
 
+#include "image.hpp"
+
 enum AstraSecureBootVersion {
     ASTRA_SECURE_BOOT_V2,
     ASTRA_SECURE_BOOT_V3,
@@ -27,10 +29,12 @@ public:
     std::string GetID() const { return m_id; }
     enum AstraSecureBootVersion GetSecureBootVersion() const { return m_secureBootVersion; }
 
+    const std::vector<Image>& GetImages() const { return m_images; }
+
 private:
     std::string m_path;
     std::string m_directoryName;
-    std::vector<std::shared_ptr<Image>> m_images;
+    std::vector<Image> m_images;
     std::string m_id;
     std::string m_chipName;
     std::string m_boardName;
