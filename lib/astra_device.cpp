@@ -17,6 +17,10 @@ public:
     AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_usbDevice{std::move(device)}
     {}
 
+    ~AstraDeviceImpl() {
+        std::cout << "Console: " << m_console.Get() << std::endl;
+    }
+
     void SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
         m_statusCallback = statusCallback;
     }
@@ -81,6 +85,8 @@ private:
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
     uint8_t m_imageBuffer[m_imageBufferSize];
 
+    Console m_console;
+
     void HandleInterrupt(uint8_t *buf, size_t size) {
         std::cout << "Interrupt received: size:" << size << std::endl;
 
@@ -110,9 +116,9 @@ private:
             std::cout << "Requested image name: '" << m_requestedImageName << "'" << std::endl;
 
             m_imageRequestCV.notify_one();
+        } else {
+            m_console.Append(message);
         }
-
-        // Handle Console Data
     }
 
     int SendImage(Image *image)
