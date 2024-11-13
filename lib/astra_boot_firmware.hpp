@@ -11,7 +11,10 @@ enum AstraSecureBootVersion {
     ASTRA_SECURE_BOOT_V3,
 };
 
-class Image;
+enum AstraUbootConsole {
+    ASTRA_UBOOT_CONSOLE_UART,
+    ASTRA_UBOOT_CONSOLE_USB,
+};
 
 class AstraBootFirmware
 {
@@ -28,6 +31,7 @@ public:
     std::string GetBoardName() const { return m_boardName; }
     std::string GetID() const { return m_id; }
     enum AstraSecureBootVersion GetSecureBootVersion() const { return m_secureBootVersion; }
+    enum AstraUbootConsole GetUbootConsole() const { return m_ubootConsole; }
 
     const std::vector<Image>& GetImages() const { return m_images; }
 
@@ -39,6 +43,7 @@ private:
     std::string m_chipName;
     std::string m_boardName;
     enum AstraSecureBootVersion m_secureBootVersion;
+    enum AstraUbootConsole m_ubootConsole;
     uint16_t m_vendorId;
     uint16_t m_productId;
 

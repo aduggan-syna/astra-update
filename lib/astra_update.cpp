@@ -28,9 +28,9 @@ public:
         BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/home/aduggan/astra_boot");
         bootFirmwareCollection.Load();
 
-        m_firmware = bootFirmwareCollection.GetFirmware(flashImage->GetBootFirmwareId());
-        uint16_t vendorId = m_firmware.GetVendorId();
-        uint16_t productId = m_firmware.GetProductId();
+        m_firmware = std::make_shared<AstraBootFirmware>(bootFirmwareCollection.GetFirmware(flashImage->GetBootFirmwareId()));
+        uint16_t vendorId = m_firmware->GetVendorId();
+        uint16_t productId = m_firmware->GetProductId();
 
         if (m_transport.Init(vendorId, productId,
                 std::bind(&AstraUpdateImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
@@ -66,7 +66,7 @@ private:
     std::function<void(std::shared_ptr<AstraDevice>)> m_deviceAddedCallback;
     std::shared_ptr<FlashImage> m_flashImage;
     std::string m_bootFirmwarePath;
-    AstraBootFirmware m_firmware;
+    std::shared_ptr<AstraBootFirmware> m_firmware;
     std::vector<std::thread> m_updateThreads;
 
     void DeviceAddedCallback(std::unique_ptr<USBDevice> device) {
@@ -80,27 +80,9 @@ private:
     {
         int ret;
 
-        ret = device->Open();
+        ret = device->Open(m_firmware, m_flashImage);
         if (ret < 0) {
             std::cerr << "Failed to open device" << std::endl;
-            return ret;
-        }
-
-        ret = device->Boot(m_firmware); 
-        if (ret < 0) {
-            std::cerr << "Failed to boot device" << std::endl;
-            return ret;
-        }
-
-        ret = device->Update(m_flashImage);
-        if (ret < 0) {
-            std::cerr << "Failed to open device" << std::endl;
-            return ret;
-        }
-
-        ret = device->Reset();
-        if (ret < 0) {
-            std::cerr << "Failed to reset device" << std::endl;
             return ret;
         }
 

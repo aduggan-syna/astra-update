@@ -11,5 +11,5 @@ public:
     virtual ~EmmcFlashImage()
     {}
 
-    virtual int Load() override;
+    int Load() override;
 };

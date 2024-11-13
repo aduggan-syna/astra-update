@@ -27,10 +27,16 @@ int main() {
     AstraUpdate update;
     std::shared_ptr<FlashImage> flashImage;
 
-    //flashImage = FlashImage::FlashImageFactory("/home/aduggan/sl1680_v1.3.0");
-    flashImage = FlashImage::FlashImageFactory("/home/aduggan/vs680_v0.3_noble");
+    flashImage = FlashImage::FlashImageFactory("/home/aduggan/sl1680_v1.3.0");
+    //flashImage = FlashImage::FlashImageFactory("/home/aduggan/vs680_v0.3_noble");
 
-    int ret = update.StartDeviceSearch(flashImage, DeviceAddedCallback);
+    int ret = flashImage->Load();
+    if (ret < 0) {
+        std::cerr << "Failed to load flash image" << std::endl;
+        return 1;
+    }
+
+    ret = update.StartDeviceSearch(flashImage, DeviceAddedCallback);
     if (ret < 0) {
         std::cerr << "Error initializing Astra Update" << std::endl;
         return 1;

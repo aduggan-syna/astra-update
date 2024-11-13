@@ -18,15 +18,16 @@ public:
     {}
 
     ~AstraDeviceImpl() {
-        std::cout << "Console: " << m_console.Get() << std::endl;
     }
 
     void SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
         m_statusCallback = statusCallback;
     }
 
-    int Open() {
+    int Open(std::shared_ptr<AstraBootFirmware> firmware, std::shared_ptr<FlashImage> image) {
         int ret;
+
+        m_ubootConsole = firmware->GetUbootConsole();
 
         ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::HandleInterrupt, this, std::placeholders::_1, std::placeholders::_2));
         if (ret < 0) {
@@ -34,17 +35,10 @@ public:
             return ret;
         }
 
-        m_statusCallback(ASTRA_DEVICE_STATE_OPENED, 0, "Device opened");
+        m_state = ASTRA_DEVICE_STATE_OPENED;
 
-        return 0;
-    }
-
-    int Boot(AstraBootFirmware &firmware) {
-        int ret;
-
-        std::vector<Image> images = firmware.GetImages();
-
-        m_statusCallback(ASTRA_DEVICE_STATE_BOOT_START, 0, "Booting device");
+        std::vector<Image> images = firmware->GetImages();
+        images.insert(images.end(), image->GetImages().begin(), image->GetImages().end());
 
         ret = HandleImageRequests(images);
         if (ret < 0) {
@@ -52,18 +46,14 @@ public:
             return ret;
         }
 
-        m_statusCallback(ASTRA_DEVICE_STATE_BOOT_COMPLETE, 100, "Device booted");
-
         return 0;
     }
 
-    int Update(std::shared_ptr<FlashImage> image) {
-        int ret;
+    int Boot() {
+        return 0;
+    }
 
-        m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_START, 0, "Updating device");
-
-        m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_COMPLETE, 100, "Device updated");
-
+    int Update() {
         return 0;
     }
 
@@ -86,6 +76,7 @@ private:
     uint8_t m_imageBuffer[m_imageBufferSize];
 
     Console m_console;
+    enum AstraUbootConsole m_ubootConsole;
 
     void HandleInterrupt(uint8_t *buf, size_t size) {
         std::cout << "Interrupt received: size:" << size << std::endl;
@@ -194,6 +185,15 @@ private:
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             m_imageRequestCV.wait(lock);
 
+            std::string imageNamePrefix;
+
+            if (m_requestedImageName.find('/') != std::string::npos) {
+                size_t pos = m_requestedImageName.find('/');
+                imageNamePrefix = m_requestedImageName.substr(0, pos);
+                m_requestedImageName = m_requestedImageName.substr(pos + 1);
+                std::cout << "Requested image name prefix: '" << imageNamePrefix << "', requested Image Name: '" << m_requestedImageName << "'" << std::endl;
+            }
+
             auto it = std::find_if(images.begin(), images.end(), [this](const Image &img) {
                 std::cout << "Comparing: " << img.GetName() << " to " << m_requestedImageName << std::endl;
                 for (char c : img.GetName()) {
@@ -234,16 +234,16 @@ void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceState, int pro
     pImpl->SetStatusCallback(statusCallback);
 }
 
-int AstraDevice::Open() {
-    return pImpl->Open();
+int AstraDevice::Open(std::shared_ptr<AstraBootFirmware> firmware, std::shared_ptr<FlashImage> image) {
+    return pImpl->Open(firmware, image);
 }
 
-int AstraDevice::Boot(AstraBootFirmware &firmware) {
-    return pImpl->Boot(firmware);
+int AstraDevice::Boot() {
+    return pImpl->Boot();
 }
 
-int AstraDevice::Update(std::shared_ptr<FlashImage> image) {
-    return pImpl->Update(image);
+int AstraDevice::Update() {
+    return pImpl->Update();
 }
 
 int AstraDevice::Reset() {

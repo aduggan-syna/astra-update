@@ -41,6 +41,11 @@ int USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCall
         return 1;
     }
 
+    if (m_handle == nullptr) {
+        std::cerr << "Failed to open USB device" << std::endl;
+        return 1;
+    }
+
     m_open = true;
 
     ret = libusb_get_config_descriptor(libusb_get_device(m_handle), 0, &m_config);
@@ -58,6 +63,41 @@ int USBDevice::Open(std::function<void(uint8_t *buf, size_t size)> interruptCall
     std::cout << "  iConfiguration: " << static_cast<int>(m_config->iConfiguration) << std::endl;
     std::cout << "  bmAttributes: " << static_cast<int>(m_config->bmAttributes) << std::endl;
     std::cout << "  MaxPower: " << static_cast<int>(m_config->MaxPower) << std::endl;
+
+    unsigned char serialNumber[256];
+    libusb_device_descriptor desc;
+    ret = libusb_get_device_descriptor(m_device, &desc);
+    if (ret < 0) {
+        std::cerr << "Failed to get device descriptor: " << libusb_error_name(ret) << std::endl;
+        return 1;
+    }
+
+    if (desc.iSerialNumber != 0) {
+        ret = libusb_get_string_descriptor_ascii(m_handle, desc.iSerialNumber, serialNumber, sizeof(serialNumber));
+        if (ret < 0) {
+            std::cerr << "Failed to get serial number: " << libusb_error_name(ret) << std::endl;
+        } else {
+            m_serialNumber = std::string(serialNumber, serialNumber + ret);
+            std::cout << "Serial number: " << m_serialNumber << std::endl;
+        }
+    }
+
+    uint8_t *portNumbers = new uint8_t[8];
+    uint8_t bus = libusb_get_bus_number(libusb_get_device(m_handle));
+    uint8_t port = libusb_get_port_number(libusb_get_device(m_handle));
+    int numElementsInPath = libusb_get_port_numbers(libusb_get_device(m_handle), portNumbers, 8);
+    std::stringstream usbPathStream;
+    usbPathStream << static_cast<int>(bus) << "-";
+    std::cout << "Number of Elements in Path: " << numElementsInPath << std::endl;
+    if (numElementsInPath > 0) {
+        usbPathStream << static_cast<int>(portNumbers[0]);
+        for (int i = 1; i < numElementsInPath; ++i) {
+            usbPathStream << "." << static_cast<int>(portNumbers[i]);
+        }
+    }
+    delete[] portNumbers;
+    m_usbPath = usbPathStream.str();
+    std::cout << "USB Path: " << usbPathStream.str() << std::endl;
 
     ret = libusb_detach_kernel_driver(m_handle, 0);
     if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {

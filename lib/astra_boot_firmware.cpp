@@ -16,6 +16,7 @@ int AstraBootFirmware::LoadManifest(std::string manifestPath)
         m_chipName = manifest["chip"].as<std::string>();
         m_boardName = manifest["board"].as<std::string>();
         m_secureBootVersion = manifest["secure_boot"].as<std::string>() == "gen2" ? ASTRA_SECURE_BOOT_V2 : ASTRA_SECURE_BOOT_V3;
+        m_ubootConsole = manifest["console"].as<std::string>() == "uart" ? ASTRA_UBOOT_CONSOLE_UART : ASTRA_UBOOT_CONSOLE_USB;
         m_vendorId = std::stoi(manifest["vendor_id"].as<std::string>(), nullptr, 16);
         m_productId = std::stoi(manifest["product_id"].as<std::string>(), nullptr, 16);
 

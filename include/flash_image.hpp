@@ -2,6 +2,9 @@
 
 #include <string>
 #include <memory>
+#include <vector>
+
+#include "image.hpp"
 
 enum FlashImageType {
     FLASH_IMAGE_TYPE_SPI,
@@ -24,6 +27,9 @@ public:
     std::string GetBootFirmwareId() const { return m_bootFirmwareId; }
     std::string GetChipName() const { return m_chipName; }
     std::string GetBoardName() const { return m_boardName; }
+    std::string GetImageDirectory() const { return m_directoryName; }
+
+    const std::vector<Image>& GetImages() const { return m_images; }
 
     static std::shared_ptr<FlashImage> FlashImageFactory(std::string imagePath, std::string manifest="");
 
@@ -33,4 +39,6 @@ protected:
     std::string m_chipName;
     std::string m_boardName;
     std::string m_imagePath;
+    std::string m_directoryName;
+    std::vector<Image> m_images;
 };
