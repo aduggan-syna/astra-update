@@ -43,6 +43,8 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
 endif()
 
 target_include_directories(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/yaml-cpp/include)
+target_include_directories(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/libusb/include)
+
 
 target_link_libraries(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/libusb/lib/libusb-1.0${CMAKE_STATIC_LIBRARY_SUFFIX} ${PLATFORM_LINK_LIBRARIES})
 target_link_libraries(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/yaml-cpp/lib/libyaml-cpp${CMAKE_STATIC_LIBRARY_SUFFIX})
