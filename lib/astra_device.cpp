@@ -46,6 +46,15 @@ public:
             return ret;
         }
 
+        std::ofstream imageFile(m_usbPathImageFilename);
+        if (!imageFile) {
+            std::cerr << "Failed to open 06_IMAGE file" << std::endl;
+            return -1;
+        }
+
+        imageFile << m_usbDevice->GetUSBPath();
+        imageFile.close();
+
         return 0;
     }
 
@@ -77,6 +86,11 @@ private:
 
     Console m_console;
     enum AstraUbootConsole m_ubootConsole;
+
+    const std::string m_usbPathImageFilename = "06_IMAGE";
+    const std::string m_sizeRequestImageFilename = "07_IMAGE";
+    Image m_usbPathImage = Image(m_usbPathImageFilename);
+    Image m_sizeRequestImage = Image(m_sizeRequestImageFilename);
 
     void HandleInterrupt(uint8_t *buf, size_t size) {
         std::cout << "Interrupt received: size:" << size << std::endl;
@@ -112,6 +126,23 @@ private:
         }
     }
 
+    int UpdateImageSizeRequestFile(int fileSize)
+    {
+        if (m_imageType > 0x79)
+        {
+            std::ofstream sizeFile(m_sizeRequestImageFilename);
+            if (!sizeFile) {
+                std::cerr << "Failed to open " << m_usbPathImageFilename << " file" << std::endl;
+                return -1;
+            }
+
+            sizeFile << fileSize;
+            sizeFile.close();
+        }
+
+        return 0;
+    }
+
     int SendImage(Image *image)
     {
         int ret;
@@ -125,6 +156,11 @@ private:
         }
 
         m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_START, 0, image->GetName());
+
+        ret = UpdateImageSizeRequestFile(image->GetSize());
+        if (ret < 0) {
+            std::cerr << "Failed to update image size request file" << std::endl;
+        }
 
         uint32_t imageSizeLE = htole32(image->GetSize());
         std::memcpy(m_imageBuffer, &imageSizeLE, sizeof(imageSizeLE));
@@ -207,12 +243,20 @@ private:
                 return img.GetName() == m_requestedImageName;
             });
 
+            Image *image;
             if (it == images.end()) {
-                std::cerr << "Requested image not found: " << m_requestedImageName << std::endl;
-                return -1;
+                if (m_requestedImageName == m_sizeRequestImageFilename) {
+                    image = &m_sizeRequestImage;
+                } else if (m_requestedImageName == m_usbPathImageFilename) {
+                    image = &m_usbPathImage;
+                } else {
+                    std::cerr << "Requested image not found: " << m_requestedImageName << std::endl;
+                    return -1;
+                }
+            } else {
+                image = &(*it);
             }
 
-            Image *image = &(*it);
             ret = SendImage(image);
             if (ret < 0) {
                 std::cerr << "Failed to send image" << std::endl;

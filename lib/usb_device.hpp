@@ -16,6 +16,8 @@ public:
     int Open(std::function<void(uint8_t *buf, size_t size)> interruptCallback);
     void Close() override;
 
+    std::string &GetUSBPath() { return m_usbPath; }
+
     int Read(uint8_t *data, size_t size, int *transferred) override;
     int Write(const uint8_t *data, size_t size, int *transferred) override;
 
