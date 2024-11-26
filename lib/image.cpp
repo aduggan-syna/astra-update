@@ -26,29 +26,6 @@ int Image::Load()
     m_imageSize = size;
 
     m_fp = fp;
-#if 0
-    m_file.open(m_imagePath, std::ios::binary);
-    if (!m_file.is_open() && m_file.fail()) {
-        return -1; // Error opening file
-    }
-
-    if (m_file.fail()) {
-        m_file.clear();
-    #if 0
-        std::cerr << "Failed to open file: " << m_imagePath << std::endl;
-        std::cerr << "Error: " << strerror(errno) << std::endl;
-        return -1; // Error opening file
-    #endif
-    }
-
-    std::streamsize size = m_file.seekg(0, std::ios::end).tellg();
-    if (size < 0) {
-        return -1; // Error getting file size
-    }
-    m_imageSize = size;
-
-    m_file.seekg(0, std::ios::beg);
-#endif
 
     return 0;
 }
@@ -69,18 +46,6 @@ int Image::GetDataBlock(uint8_t *data, size_t size)
     if (bytesRead != readSize) {
         return -1;
     }
-
-#if 0
-    std::streampos offset = m_file.tellg();
-    if (offset + static_cast<std::streampos>(readSize) > m_imageSize) {
-        return -1;
-    }
-
-    m_file.read(reinterpret_cast<char*>(data), readSize);
-    if (!m_file) {
-        return -1;
-    }
-#endif
 
     return readSize;
 }
