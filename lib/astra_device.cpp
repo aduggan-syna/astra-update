@@ -126,18 +126,23 @@ private:
         }
     }
 
-    int UpdateImageSizeRequestFile(int fileSize)
+    int UpdateImageSizeRequestFile(uint32_t fileSize)
     {
         if (m_imageType > 0x79)
         {
-            std::ofstream sizeFile(m_sizeRequestImageFilename);
+            FILE *sizeFile = fopen(m_sizeRequestImageFilename.c_str(), "w");
             if (!sizeFile) {
-                std::cerr << "Failed to open " << m_usbPathImageFilename << " file" << std::endl;
+                std::cerr << "Failed to open " << m_sizeRequestImageFilename << " file" << std::endl;
                 return -1;
             }
+            std::cout << "Writing image size to 07_IMAGE: " << fileSize << std::endl;
 
-            sizeFile << fileSize;
-            sizeFile.close();
+            if (fwrite(&fileSize, sizeof(fileSize), 1, sizeFile) != 1) {
+                std::cerr << "Failed to write image size to file" << std::endl;
+                fclose(sizeFile);
+                return -1;
+            }
+            fclose(sizeFile);
         }
 
         return 0;
@@ -156,11 +161,6 @@ private:
         }
 
         m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_START, 0, image->GetName());
-
-        ret = UpdateImageSizeRequestFile(image->GetSize());
-        if (ret < 0) {
-            std::cerr << "Failed to update image size request file" << std::endl;
-        }
 
         uint32_t imageSizeLE = htole32(image->GetSize());
         std::memcpy(m_imageBuffer, &imageSizeLE, sizeof(imageSizeLE));
@@ -206,6 +206,11 @@ private:
             std::cerr << "Failed to transfer entire image" << std::endl;
             m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
             return -1;
+        }
+
+        ret = UpdateImageSizeRequestFile(image->GetSize());
+        if (ret < 0) {
+            std::cerr << "Failed to update image size request file" << std::endl;
         }
 
         m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_COMPLETE, 100, image->GetName());
