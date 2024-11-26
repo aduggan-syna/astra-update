@@ -60,8 +60,9 @@ int Image::GetDataBlock(uint8_t *data, size_t size)
         readSize = m_imageSize;
     }
 
-    if (ftell(m_fp) + static_cast<long>(readSize) > m_imageSize) {
-        return -1;
+    long currentPos = ftell(m_fp);
+    if (currentPos + static_cast<long>(readSize) > m_imageSize) {
+        readSize = m_imageSize - currentPos;
     }
 
     size_t bytesRead = fread(data, 1, readSize, m_fp);
