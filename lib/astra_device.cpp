@@ -35,6 +35,15 @@ public:
             return ret;
         }
 
+        std::ofstream imageFile(m_usbPathImageFilename);
+        if (!imageFile) {
+            std::cerr << "Failed to open 06_IMAGE file" << std::endl;
+            return -1;
+        }
+
+        imageFile << m_usbDevice->GetUSBPath();
+        imageFile.close();
+
         m_state = ASTRA_DEVICE_STATE_OPENED;
 
         std::vector<Image> images = firmware->GetImages();
@@ -45,15 +54,6 @@ public:
             std::cerr << "Failed to handle image request" << std::endl;
             return ret;
         }
-
-        std::ofstream imageFile(m_usbPathImageFilename);
-        if (!imageFile) {
-            std::cerr << "Failed to open 06_IMAGE file" << std::endl;
-            return -1;
-        }
-
-        imageFile << m_usbDevice->GetUSBPath();
-        imageFile.close();
 
         return 0;
     }
@@ -178,7 +178,7 @@ private:
 
         totalTransferred += transferred;
 
-        m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, totalTransferred / totalTransferSize, image->GetName());
+        m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, (totalTransferred / totalTransferSize) * 100, image->GetName());
 
         std::cout << "Total transfer size: " << totalTransferSize << std::endl;
         std::cout << "Total transferred: " << totalTransferred << std::endl;
@@ -199,7 +199,7 @@ private:
 
             totalTransferred += transferred;
 
-            m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, totalTransferred / totalTransferSize, image->GetName());
+            m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, (totalTransferred / totalTransferSize) * 100, image->GetName());
         }
 
         if (totalTransferred != totalTransferSize) {
