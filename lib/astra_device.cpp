@@ -20,7 +20,7 @@ public:
     ~AstraDeviceImpl() {
     }
 
-    void SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
+    void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback) {
         m_statusCallback = statusCallback;
     }
 
@@ -178,7 +178,7 @@ private:
 
         totalTransferred += transferred;
 
-        m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, (totalTransferred / totalTransferSize) * 100, image->GetName());
+        m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, ((double)totalTransferred / totalTransferSize) * 100, image->GetName());
 
         std::cout << "Total transfer size: " << totalTransferSize << std::endl;
         std::cout << "Total transferred: " << totalTransferred << std::endl;
@@ -199,7 +199,7 @@ private:
 
             totalTransferred += transferred;
 
-            m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, (totalTransferred / totalTransferSize) * 100, image->GetName());
+            m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, ((double)totalTransferred / totalTransferSize) * 100, image->GetName());
         }
 
         if (totalTransferred != totalTransferSize) {
@@ -279,7 +279,7 @@ AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device) :
 
 AstraDevice::~AstraDevice() = default;
 
-void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceState, int progress, std::string message)> statusCallback) {
+void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback) {
     pImpl->SetStatusCallback(statusCallback);
 }
 
