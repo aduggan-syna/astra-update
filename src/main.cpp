@@ -27,8 +27,7 @@ int main() {
     AstraUpdate update;
     std::shared_ptr<FlashImage> flashImage;
 
-    flashImage = FlashImage::FlashImageFactory("/home/aduggan/sl1640_v1.3.0");
-    //flashImage = FlashImage::FlashImageFactory("/home/aduggan/vs680_v0.3_noble");
+    flashImage = FlashImage::FlashImageFactory("/home/aduggan/sl1680");
 
     int ret = flashImage->Load();
     if (ret < 0) {
