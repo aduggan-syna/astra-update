@@ -25,7 +25,7 @@ public:
         m_flashImage = flashImage;
         m_deviceAddedCallback = deviceAddedCallback;
 
-        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/home/aduggan/astra_boot");
+        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/home/aduggan/astra-usbboot-firmware");
         bootFirmwareCollection.Load();
 
         m_firmware = std::make_shared<AstraBootFirmware>(bootFirmwareCollection.GetFirmware(flashImage->GetBootFirmwareId()));
