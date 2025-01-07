@@ -37,6 +37,9 @@ public:
     int Update();
     int Reset();
 
+    int SendToConsole(const std::string &data);
+    int ReceiveFromConsole(std::string &data);
+
 private:
     class AstraDeviceImpl;
     std::unique_ptr<AstraDeviceImpl> pImpl;

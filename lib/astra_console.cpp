@@ -1,9 +1,9 @@
-#include "console.hpp"
+#include "astra_console.hpp"
 
-Console::~Console()
+AstraConsole::~AstraConsole()
 {}
 
-void Console::Append(const std::string &data) {
+void AstraConsole::Append(const std::string &data) {
     std::string trimmedData = data;
     trimmedData.erase(trimmedData.find_last_not_of(" \t\n\r\f\v") + 1);
 
@@ -17,18 +17,13 @@ void Console::Append(const std::string &data) {
     std::cout << "Console: '" << m_consoleData << "'" << std::endl;
 }
 
-std::string &Console::Get()
+std::string &AstraConsole::Get()
     {
     return m_consoleData;
 }
 
-void Console::WaitForPrompt()
+void AstraConsole::WaitForPrompt()
 {
     std::unique_lock<std::mutex> lock(m_promptMutex);
     m_promptCV.wait(lock);
-}
-
-void Console::SendCommand(const std::string &command)
-{
-
 }

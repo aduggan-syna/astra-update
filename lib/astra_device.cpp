@@ -8,7 +8,7 @@
 #include "astra_device.hpp"
 #include "astra_boot_firmware.hpp"
 #include "flash_image.hpp"
-#include "console.hpp"
+#include "astra_console.hpp"
 #include "usb_device.hpp"
 #include "image.hpp"
 
@@ -70,6 +70,22 @@ public:
         return 0;
     }
 
+    int SendToConsole(const std::string &data)
+    {
+        int ret = m_usbDevice->WriteInterruptData(reinterpret_cast<const uint8_t*>(data.c_str()), data.size());
+        if (ret < 0) {
+            std::cerr << "Failed to send data to console" << std::endl;
+            return ret;
+        }
+        return 0;
+    }
+
+    int ReceiveFromConsole(std::string &data)
+    {
+        data = m_console.Get();
+        return 0;
+    }
+
 private:
     std::unique_ptr<USBDevice> m_usbDevice;
     AstraDeviceState m_state;
@@ -84,7 +100,7 @@ private:
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
     uint8_t m_imageBuffer[m_imageBufferSize];
 
-    Console m_console;
+    AstraConsole m_console;
     enum AstraUbootConsole m_ubootConsole;
 
     const std::string m_usbPathImageFilename = "06_IMAGE";
@@ -297,4 +313,12 @@ int AstraDevice::Update() {
 
 int AstraDevice::Reset() {
     return pImpl->Reset();
+}
+
+int AstraDevice::SendToConsole(const std::string &data) {
+    return pImpl->SendToConsole(data);
+}
+
+int AstraDevice::ReceiveFromConsole(std::string &data) {
+    return pImpl->ReceiveFromConsole(data);
 }

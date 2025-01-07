@@ -20,10 +20,10 @@ ExternalProject_Add(yaml-cpp
 )
 
 file(GLOB SRC astra_boot_firmware.cpp
+                astra_console.cpp
                 astra_device.cpp
                 astra_update.cpp
                 boot_firmware_collection.cpp
-                console.cpp
                 emmc_flash_image.cpp
                 flash_image.cpp
                 image.cpp

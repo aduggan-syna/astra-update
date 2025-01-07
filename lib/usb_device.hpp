@@ -21,6 +21,8 @@ public:
     int Read(uint8_t *data, size_t size, int *transferred) override;
     int Write(const uint8_t *data, size_t size, int *transferred) override;
 
+    int WriteInterruptData(const uint8_t *data, size_t size);
+
 private:
     libusb_device *m_device;
     libusb_context *m_ctx;

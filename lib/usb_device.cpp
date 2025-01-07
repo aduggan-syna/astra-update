@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstddef>
 #include <iomanip>
+#include <cstring>
 
 #include "usb_device.hpp"
 
@@ -264,6 +265,35 @@ int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
     int ret = libusb_bulk_transfer(m_handle, m_bulkOutEndpoint, const_cast<uint8_t*>(data), size, transferred, m_bulkTransferTimeout);
     if (ret < 0) {
         std::cerr << "Failed to write to USB device: " << libusb_error_name(ret) << std::endl;
+        return 1;
+    }
+
+    return 0;
+}
+
+int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
+{
+    if (!m_open) {
+        return 1;
+    }
+
+    std::cout << "Sending interrupt out transfer" << std::endl;
+    std::cout << "  Interrupt Out Endpoint: " << static_cast<int>(m_interruptOutEndpoint) << std::endl;
+    std::cout << "  Length: " << size << std::endl;
+    std::cout << "  Data: ";
+    for (size_t i = 0; i < 16 && i < size; ++i) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]) << " ";
+    }
+    std::cout << std::dec << std::endl;
+
+    std::memcpy(m_interruptOutBuffer, data, size);
+
+    libusb_fill_interrupt_transfer(m_outputInterruptXfer, m_handle, m_interruptOutEndpoint,
+        m_interruptOutBuffer, size, nullptr, nullptr, 0);
+
+    int ret = libusb_submit_transfer(m_outputInterruptXfer);
+    if (ret < 0) {
+        std::cerr << "Failed to submit output interrupt transfer: " << libusb_error_name(ret) << std::endl;
         return 1;
     }
 

@@ -5,18 +5,16 @@
 #include <condition_variable>
 #include <mutex>
 
-class Console
+class AstraConsole
 {
 public:
-    Console() = default;
-    ~Console();
+    AstraConsole() = default;
+    ~AstraConsole();
 
     void Append(const std::string &data);
     std::string &Get();
 
     void WaitForPrompt();
-
-    void SendCommand(const std::string &command);
 
 private:
     std::string m_consoleData;
