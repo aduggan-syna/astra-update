@@ -35,7 +35,7 @@ int main() {
         return 1;
     }
 
-    ret = update.StartDeviceSearch(flashImage, DeviceAddedCallback);
+    ret = update.StartDeviceSearch(flashImage->GetBootFirmwareId(), DeviceAddedCallback);
     if (ret < 0) {
         std::cerr << "Error initializing Astra Update" << std::endl;
         return 1;
@@ -51,10 +51,17 @@ int main() {
         if (device) {
             device->SetStatusCallback(DeviceStatusCallback);
 
-            ret = update.UpdateDevice(device);
+            ret = device->Boot(update.GetBootFirmware());
+            if (ret < 0) {
+                std::cerr << "Failed to boot device" << std::endl;
+            }
+
+            ret = device->Update(flashImage);
             if (ret < 0) {
                 std::cerr << "Failed to update device" << std::endl;
             }
+
+            ret = device->Complete();
         }
     }
 

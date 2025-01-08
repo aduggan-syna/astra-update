@@ -12,13 +12,13 @@ public:
     AstraUpdate();
     ~AstraUpdate();
 
-    int StartDeviceSearch(std::shared_ptr<FlashImage> flashImage,
+    int StartDeviceSearch(std::string bootFirmwareId,
         std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback);
     void StopDeviceSearch();
 
-    int UpdateDevice(std::shared_ptr<AstraDevice> device);
-
     void SetBootFirmwarePath(std::string path);
+
+    std::shared_ptr<AstraBootFirmware> GetBootFirmware();
 
 private:
     class AstraUpdateImpl;

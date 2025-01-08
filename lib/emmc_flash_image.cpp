@@ -15,8 +15,9 @@ int EmmcFlashImage::Load()
                 if ((entry.path().string().find("emmc") != std::string::npos) ||
                     (entry.path().string().find("subimg") != std::string::npos))
                 {
-
                     m_images.push_back(Image(entry.path().string()));
+
+                    m_flashCommand = "l2emmc " + m_directoryName + "\n";
                 }
         }
     }

@@ -14,11 +14,11 @@ void AstraConsole::Append(const std::string &data) {
     }
 
     m_consoleData += data;
-    std::cout << "Console: '" << m_consoleData << "'" << std::endl;
+    std::cout << "Console: '" << data << "'" << std::endl;
 }
 
 std::string &AstraConsole::Get()
-    {
+{
     return m_consoleData;
 }
 

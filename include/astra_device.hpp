@@ -32,10 +32,9 @@ public:
 
     void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback);
 
-    int Open(std::shared_ptr<AstraBootFirmware> firmware, std::shared_ptr<FlashImage> image);
-    int Boot();
-    int Update();
-    int Reset();
+    int Boot(std::shared_ptr<AstraBootFirmware> firmware);
+    int Update(std::shared_ptr<FlashImage> flashImage);
+    int Complete();
 
     int SendToConsole(const std::string &data);
     int ReceiveFromConsole(std::string &data);
