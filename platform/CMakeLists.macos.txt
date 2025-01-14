@@ -1,0 +1,6 @@
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+
+include_directories(/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include)
+add_definitions(-DPLATFORM_MACOS)
+
+set(PLATFORM_LINK_LIBRARIES objc "-framework Foundation" "-framework IOKit" "-framework Security")

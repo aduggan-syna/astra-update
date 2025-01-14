@@ -1,0 +1,2 @@
+add_definitions(-DPLATFORM_LINUX)
+set(PLATFORM_LINK_LIBRARIES udev)

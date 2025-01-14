@@ -5,6 +5,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(astra-update)
 
+# Detect platform and include corresponding CMake file
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    message(STATUS "Building on macOS")
+    include(${CMAKE_SOURCE_DIR}/platform/CMakeLists.macos.txt)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(STATUS "Building on Linux")
+    include(${CMAKE_SOURCE_DIR}/platform/CMakeLists.linux.txt)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    message(STATUS "Building on Windows")
+    include(${CMAKE_SOURCE_DIR}/platform/CMakeLists.windows.txt)
+else()
+    message(FATAL_ERROR "Unsupported platform")
+endif()
+
 include_directories(include)
 
 add_subdirectory(lib)

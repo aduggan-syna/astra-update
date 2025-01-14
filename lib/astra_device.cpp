@@ -6,6 +6,11 @@
 #include <mutex>
 #include <cstring>
 
+#ifdef PLATFORM_MACOS
+#include <libkern/OSByteOrder.h>
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#endif
+
 #include "astra_device.hpp"
 #include "astra_boot_firmware.hpp"
 #include "flash_image.hpp"
