@@ -29,7 +29,7 @@ public:
 
         m_ubootConsole = firmware->GetUbootConsole();
 
-        ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::HandleInterrupt, this, std::placeholders::_1, std::placeholders::_2));
+        ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::USBEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         if (ret < 0) {
             std::cerr << "Failed to open device" << std::endl;
             return ret;
@@ -154,6 +154,14 @@ private:
             m_imageRequestCV.notify_one();
         } else {
             m_console.Append(message);
+        }
+    }
+
+    void USBEventHandler(USBDevice::USBEvent event, uint8_t *buf, size_t size) {
+        if (event == USBDevice::USB_DEVICE_EVENT_INTERRUPT) {
+            HandleInterrupt(buf, size);
+        } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE) {
+
         }
     }
 

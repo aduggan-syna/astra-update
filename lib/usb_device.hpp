@@ -13,7 +13,12 @@ public:
     USBDevice(libusb_device *device, libusb_context *ctx);
     ~USBDevice();
 
-    int Open(std::function<void(uint8_t *buf, size_t size)> interruptCallback);
+    enum USBEvent {
+        USB_DEVICE_EVENT_NO_DEVICE,
+        USB_DEVICE_EVENT_INTERRUPT,
+    };
+
+    int Open(std::function<void(USBEvent event, uint8_t *buf, size_t size)> usbEventCallback);
     void Close() override;
 
     std::string &GetUSBPath() { return m_usbPath; }
@@ -50,7 +55,7 @@ private:
 
     int m_bulkTransferTimeout;
 
-    std::function<void(uint8_t *buf, size_t size)> m_inputInterruptCallback;
+    std::function<void(USBEvent event, uint8_t *buf, size_t size)> m_usbEventCallback;
 
     void DeviceThread();
     static void LIBUSB_CALL HandleInputInterruptTransfer(struct libusb_transfer *transfer);
