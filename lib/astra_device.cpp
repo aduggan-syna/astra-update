@@ -1,3 +1,4 @@
+#include <atomic>
 #include <iostream>
 #include <memory>
 #include <functional>
@@ -58,18 +59,19 @@ public:
         m_images->insert(m_images->end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
 
         if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
-            m_console.WaitForPrompt();
-
-            SendToConsole(flashImage->GetFlashCommand());
+            if (m_console.WaitForPrompt()) {
+                SendToConsole(flashImage->GetFlashCommand());
+            }
         }
 
         return 0;
     }
 
-    int Complete() {
+    int WaitForCompletion() {
         if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
-            m_console.WaitForPrompt();
-            //SendToConsole("reset\n");
+            if (m_console.WaitForPrompt()) {
+                SendToConsole("reset\n");
+            }
         }
 
         return 0;
@@ -95,6 +97,7 @@ private:
     std::unique_ptr<USBDevice> m_usbDevice;
     AstraDeviceState m_state;
     std::function<void(AstraDeviceState, int progress, std::string message)> m_statusCallback;
+    std::atomic<bool> m_shutdown{false};
 
     std::shared_ptr<std::vector<Image>> m_images = std::make_shared<std::vector<Image>>();
 
@@ -161,7 +164,8 @@ private:
         if (event == USBDevice::USB_DEVICE_EVENT_INTERRUPT) {
             HandleInterrupt(buf, size);
         } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE) {
-
+            // device disappeared
+            Shutdown();
         }
     }
 
@@ -264,6 +268,9 @@ private:
         while (true) {
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             m_imageRequestCV.wait(lock);
+            if (m_shutdown.load()) {
+                return 0;
+            }
 
             std::string imageNamePrefix;
 
@@ -311,6 +318,12 @@ private:
         return 0;
     }
 
+    void Shutdown() {
+        m_shutdown.store(true);
+        m_imageRequestCV.notify_all();
+        m_console.Shutdown();
+    }
+
 };
 
 AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device) : 
@@ -330,8 +343,8 @@ int AstraDevice::Update(std::shared_ptr<FlashImage> flashImage) {
     return pImpl->Update(flashImage);
 }
 
-int AstraDevice::Complete() {
-    return pImpl->Complete();
+int AstraDevice::WaitForCompletion() {
+    return pImpl->WaitForCompletion();
 }
 
 int AstraDevice::SendToConsole(const std::string &data) {

@@ -34,7 +34,7 @@ public:
 
     int Boot(std::shared_ptr<AstraBootFirmware> firmware);
     int Update(std::shared_ptr<FlashImage> flashImage);
-    int Complete();
+    int WaitForCompletion();
 
     int SendToConsole(const std::string &data);
     int ReceiveFromConsole(std::string &data);

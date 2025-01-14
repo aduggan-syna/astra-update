@@ -61,7 +61,7 @@ int main() {
                 std::cerr << "Failed to update device" << std::endl;
             }
 
-            ret = device->Complete();
+            ret = device->WaitForCompletion();
         }
     }
 

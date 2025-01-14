@@ -22,8 +22,18 @@ std::string &AstraConsole::Get()
     return m_consoleData;
 }
 
-void AstraConsole::WaitForPrompt()
+bool AstraConsole::WaitForPrompt()
 {
     std::unique_lock<std::mutex> lock(m_promptMutex);
     m_promptCV.wait(lock);
+    if (m_shutdown.load()) {
+        return false;
+    }
+
+    return true;
+}
+
+void AstraConsole::Shutdown() {
+    m_shutdown.store(true);
+    m_promptCV.notify_all();
 }
