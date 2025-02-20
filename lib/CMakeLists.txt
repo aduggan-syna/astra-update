@@ -30,6 +30,13 @@ file(GLOB SRC astra_boot_firmware.cpp
                 usb_device.cpp
                 usb_transport.cpp
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    list(APPEND SRC platform/posix_utils.cpp)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    list(APPEND SRC platform/windows_utils.cpp)
+endif()
+
 add_library(astraupdate STATIC ${SRC})
 
 add_dependencies(astraupdate yaml-cpp)
@@ -37,6 +44,7 @@ add_dependencies(astraupdate libusb)
 
 message(CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME})
 
+target_include_directories(astraupdate PRIVATE ${CMAKE_SOURCE_DIR}/lib)
 target_include_directories(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/yaml-cpp/include)
 target_include_directories(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/libusb/include)
 
