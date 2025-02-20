@@ -30,6 +30,7 @@ public:
     std::string GetChipName() const { return m_chipName; }
     std::string GetBoardName() const { return m_boardName; }
     std::string GetID() const { return m_id; }
+    bool GetUEnvSupport() const { return m_uEnvSupport; }
     enum AstraSecureBootVersion GetSecureBootVersion() const { return m_secureBootVersion; }
     enum AstraUbootConsole GetUbootConsole() const { return m_ubootConsole; }
 
@@ -42,6 +43,7 @@ private:
     std::string m_id;
     std::string m_chipName;
     std::string m_boardName;
+    bool m_uEnvSupport;
     enum AstraSecureBootVersion m_secureBootVersion;
     enum AstraUbootConsole m_ubootConsole;
     uint16_t m_vendorId;

@@ -17,14 +17,14 @@
 #include "astra_console.hpp"
 #include "usb_device.hpp"
 #include "image.hpp"
+#include "utils.hpp"
 
 class AstraDevice::AstraDeviceImpl {
 public:
     AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_usbDevice{std::move(device)}
     {}
 
-    ~AstraDeviceImpl() {
-    }
+    ~AstraDeviceImpl() = default;
 
     void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback) {
         m_statusCallback = statusCallback;
@@ -34,6 +34,7 @@ public:
         int ret;
 
         m_ubootConsole = firmware->GetUbootConsole();
+        m_uEnvSupport = firmware->GetUEnvSupport();
 
         ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::USBEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         if (ret < 0) {
@@ -41,7 +42,13 @@ public:
             return ret;
         }
 
-        std::ofstream imageFile(m_usbPathImageFilename);
+        m_tempDir = MakeTempDirerctory();
+        if (m_tempDir.empty()) {
+            std::cerr << "Failed to create temporary directory" << std::endl;
+            return -1;
+        }
+
+        std::ofstream imageFile(m_tempDir + m_usbPathImageFilename);
         if (!imageFile) {
             std::cerr << "Failed to open 06_IMAGE file" << std::endl;
             return -1;
@@ -49,6 +56,9 @@ public:
 
         imageFile << m_usbDevice->GetUSBPath();
         imageFile.close();
+
+        m_usbPathImage = std::make_unique<Image>(m_tempDir + m_usbPathImageFilename);
+        m_sizeRequestImage = std::make_unique<Image>(m_tempDir + m_sizeRequestImageFilename);
 
         m_state = ASTRA_DEVICE_STATE_OPENED;
 
@@ -63,7 +73,7 @@ public:
     int Update(std::shared_ptr<FlashImage> flashImage) {
         m_images->insert(m_images->end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
 
-        if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
+        if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB && !m_uEnvSupport) {
             if (m_console.WaitForPrompt()) {
                 SendToConsole(flashImage->GetFlashCommand());
             }
@@ -73,7 +83,15 @@ public:
     }
 
     int WaitForCompletion() {
-        if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
+        if (m_uEnvSupport) {
+            for (;;) {
+                std::unique_lock<std::mutex> lock(m_deviceEventMutex);
+                m_deviceEventCV.wait(lock);
+                if (m_shutdown.load()) {
+                    break;
+                }
+            }
+        } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
             if (m_console.WaitForPrompt()) {
                 SendToConsole("reset\n");
             }
@@ -103,8 +121,12 @@ private:
     AstraDeviceState m_state;
     std::function<void(AstraDeviceState, int progress, std::string message)> m_statusCallback;
     std::atomic<bool> m_shutdown{false};
+    bool m_uEnvSupport = false;
 
     std::shared_ptr<std::vector<Image>> m_images = std::make_shared<std::vector<Image>>();
+
+    std::condition_variable m_deviceEventCV;
+    std::mutex m_deviceEventMutex;
 
     std::thread m_imageRequestThread;
     std::condition_variable m_imageRequestCV;
@@ -119,10 +141,11 @@ private:
     AstraConsole m_console;
     enum AstraUbootConsole m_ubootConsole;
 
+    std::string m_tempDir;
     const std::string m_usbPathImageFilename = "06_IMAGE";
     const std::string m_sizeRequestImageFilename = "07_IMAGE";
-    Image m_usbPathImage = Image(m_usbPathImageFilename);
-    Image m_sizeRequestImage = Image(m_sizeRequestImageFilename);
+    std::unique_ptr<Image> m_usbPathImage;
+    std::unique_ptr<Image> m_sizeRequestImage;
 
     void ImageRequestThread() {
         int ret = HandleImageRequests();
@@ -178,9 +201,10 @@ private:
     {
         if (m_imageType > 0x79)
         {
-            FILE *sizeFile = fopen(m_sizeRequestImageFilename.c_str(), "w");
+            std::string imageName = m_tempDir + m_requestedImageName;
+            FILE *sizeFile = fopen(imageName.c_str(), "w");
             if (!sizeFile) {
-                std::cerr << "Failed to open " << m_sizeRequestImageFilename << " file" << std::endl;
+                std::cerr << "Failed to open " << m_tempDir + m_sizeRequestImageFilename << " file" << std::endl;
                 return -1;
             }
             std::cout << "Writing image size to 07_IMAGE: " << fileSize << std::endl;
@@ -302,9 +326,9 @@ private:
             Image *image;
             if (it == m_images->end()) {
                 if (m_requestedImageName == m_sizeRequestImageFilename) {
-                    image = &m_sizeRequestImage;
+                    image = m_sizeRequestImage.get();
                 } else if (m_requestedImageName == m_usbPathImageFilename) {
-                    image = &m_usbPathImage;
+                    image = m_usbPathImage.get();
                 } else {
                     std::cerr << "Requested image not found: " << m_requestedImageName << std::endl;
                     return -1;
@@ -325,6 +349,7 @@ private:
 
     void Shutdown() {
         m_shutdown.store(true);
+        m_deviceEventCV.notify_all();
         m_imageRequestCV.notify_all();
         m_console.Shutdown();
     }
