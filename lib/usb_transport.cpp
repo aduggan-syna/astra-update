@@ -31,7 +31,7 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
         std::cerr << "Failed to initialize libusb: " << libusb_error_name(ret) << std::endl;
     }
 
-    libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
+    //libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
 
     if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
         std::cerr << "Hotplug capability is not supported on this platform" << std::endl;

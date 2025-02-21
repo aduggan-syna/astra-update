@@ -17,7 +17,7 @@ int EmmcFlashImage::Load()
                 {
                     m_images.push_back(Image(entry.path().string()));
 
-                    m_flashCommand = "l2emmc " + m_directoryName + "\n";
+                    m_flashCommand = "l2emmc " + m_directoryName;
                 }
         }
     }

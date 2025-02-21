@@ -24,7 +24,7 @@ public:
     {
         m_deviceAddedCallback = deviceAddedCallback;
 
-        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/Users/aduggan/syna/astra-usbboot-firmware");
+        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/home/aduggan/astra-usbboot-firmware");
         bootFirmwareCollection.Load();
 
         m_firmware = std::make_shared<AstraBootFirmware>(bootFirmwareCollection.GetFirmware(bootFirmwareId));

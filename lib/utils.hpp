@@ -1,4 +1,4 @@
 #pragma once
 
-std::string MakeTempDirerctory();
+std::string MakeTempDirectory();
 void RemoveTempDirectory(const std::string &path);

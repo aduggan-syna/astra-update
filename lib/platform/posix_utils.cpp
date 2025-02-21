@@ -1,10 +1,11 @@
 #include <string>
 #include <iostream>
+#include <filesystem>
 #include <unistd.h>
 
 #include "utils.hpp"
 
-std::string MakeTempDirerctory()
+std::string MakeTempDirectory()
 {
     char temp[] = "/tmp/astra-update-XXXXXX";
     if (mkdtemp(temp) == nullptr) {
@@ -16,5 +17,5 @@ std::string MakeTempDirerctory()
 
 void RemoveTempDirectory(const std::string &path)
 {
-    rmdir(path.c_str());
+    std::filesystem::remove_all(path);
 }

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-std::string MakeTempDirerctory()
+std::string MakeTempDirectory()
 {
     char tempPath[MAX_PATH];
     if (GetTempPath(MAX_PATH, tempPath) == 0)

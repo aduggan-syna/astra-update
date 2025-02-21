@@ -24,7 +24,17 @@ public:
     AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_usbDevice{std::move(device)}
     {}
 
-    ~AstraDeviceImpl() = default;
+    ~AstraDeviceImpl() {
+        Shutdown();
+
+        if (m_imageRequestThread.joinable()) {
+            m_imageRequestThread.join();
+        }
+        m_console.Shutdown();
+
+        m_usbDevice->Close();
+        RemoveTempDirectory(m_tempDir);
+    }
 
     void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback) {
         m_statusCallback = statusCallback;
@@ -42,13 +52,13 @@ public:
             return ret;
         }
 
-        m_tempDir = MakeTempDirerctory();
+        m_tempDir = MakeTempDirectory();
         if (m_tempDir.empty()) {
             std::cerr << "Failed to create temporary directory" << std::endl;
             return -1;
         }
 
-        std::ofstream imageFile(m_tempDir + m_usbPathImageFilename);
+        std::ofstream imageFile(m_tempDir + "/" + m_usbPathImageFilename);
         if (!imageFile) {
             std::cerr << "Failed to open 06_IMAGE file" << std::endl;
             return -1;
@@ -57,8 +67,9 @@ public:
         imageFile << m_usbDevice->GetUSBPath();
         imageFile.close();
 
-        m_usbPathImage = std::make_unique<Image>(m_tempDir + m_usbPathImageFilename);
-        m_sizeRequestImage = std::make_unique<Image>(m_tempDir + m_sizeRequestImageFilename);
+        m_usbPathImage = std::make_unique<Image>(m_tempDir + "/"  + m_usbPathImageFilename);
+        m_sizeRequestImage = std::make_unique<Image>(m_tempDir + "/" + m_sizeRequestImageFilename);
+        m_uEnvImage = std::make_unique<Image>(m_tempDir + "/" + m_uEnvFilename);
 
         m_state = ASTRA_DEVICE_STATE_OPENED;
 
@@ -72,10 +83,19 @@ public:
 
     int Update(std::shared_ptr<FlashImage> flashImage) {
         m_images->insert(m_images->end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
-
-        if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB && !m_uEnvSupport) {
+        if (m_uEnvSupport) {
+            std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
+            std::ofstream uEnvFile(m_tempDir + "/" + m_uEnvFilename);
+            if (!uEnvFile) {
+                std::cerr << "Failed to open uEnv.txt file" << std::endl;
+                return -1;
+            }
+            uEnvFile << uEnv;
+            uEnvFile.close();
+            m_images->push_back(*m_uEnvImage);
+        } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
             if (m_console.WaitForPrompt()) {
-                SendToConsole(flashImage->GetFlashCommand());
+                SendToConsole(flashImage->GetFlashCommand() + "\n");
             }
         }
 
@@ -144,8 +164,10 @@ private:
     std::string m_tempDir;
     const std::string m_usbPathImageFilename = "06_IMAGE";
     const std::string m_sizeRequestImageFilename = "07_IMAGE";
+    const std::string m_uEnvFilename = "uEnv.txt";
     std::unique_ptr<Image> m_usbPathImage;
     std::unique_ptr<Image> m_sizeRequestImage;
+    std::unique_ptr<Image> m_uEnvImage;
 
     void ImageRequestThread() {
         int ret = HandleImageRequests();
@@ -201,10 +223,10 @@ private:
     {
         if (m_imageType > 0x79)
         {
-            std::string imageName = m_tempDir + m_requestedImageName;
+            std::string imageName = m_sizeRequestImage->GetPath();
             FILE *sizeFile = fopen(imageName.c_str(), "w");
             if (!sizeFile) {
-                std::cerr << "Failed to open " << m_tempDir + m_sizeRequestImageFilename << " file" << std::endl;
+                std::cerr << "Failed to open " << imageName << " file" << std::endl;
                 return -1;
             }
             std::cout << "Writing image size to 07_IMAGE: " << fileSize << std::endl;
@@ -348,10 +370,12 @@ private:
     }
 
     void Shutdown() {
-        m_shutdown.store(true);
-        m_deviceEventCV.notify_all();
-        m_imageRequestCV.notify_all();
-        m_console.Shutdown();
+        if (!m_shutdown.load()) {
+            m_shutdown.store(true);
+            m_deviceEventCV.notify_all();
+
+            m_imageRequestCV.notify_all();
+        }
     }
 
 };

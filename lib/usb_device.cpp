@@ -320,6 +320,7 @@ void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
         device->m_usbEventCallback(USB_DEVICE_EVENT_INTERRUPT, transfer->buffer, transfer->actual_length);
     } else if (transfer->status == LIBUSB_TRANSFER_NO_DEVICE) {
+        std::cerr << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << std::endl;
         device->m_usbEventCallback(USB_DEVICE_EVENT_NO_DEVICE, nullptr, 0);
     } else {
         std::cerr << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << std::endl;
