@@ -22,7 +22,14 @@
 class AstraDevice::AstraDeviceImpl {
 public:
     AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_usbDevice{std::move(device)}
-    {}
+    {
+        m_tempDir = MakeTempDirectory();
+        if (m_tempDir.empty()) {
+            std::cerr << "Failed to create temporary directory" << std::endl;
+        }
+
+        m_console = std::make_unique<AstraConsole>(m_tempDir);
+    }
 
     ~AstraDeviceImpl() {
         Shutdown();
@@ -30,10 +37,10 @@ public:
         if (m_imageRequestThread.joinable()) {
             m_imageRequestThread.join();
         }
-        m_console.Shutdown();
+        m_console->Shutdown();
 
         m_usbDevice->Close();
-        RemoveTempDirectory(m_tempDir);
+        //RemoveTempDirectory(m_tempDir);
     }
 
     void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback) {
@@ -50,12 +57,6 @@ public:
         if (ret < 0) {
             std::cerr << "Failed to open device" << std::endl;
             return ret;
-        }
-
-        m_tempDir = MakeTempDirectory();
-        if (m_tempDir.empty()) {
-            std::cerr << "Failed to create temporary directory" << std::endl;
-            return -1;
         }
 
         std::ofstream imageFile(m_tempDir + "/" + m_usbPathImageFilename);
@@ -94,7 +95,7 @@ public:
             uEnvFile.close();
             m_images->push_back(*m_uEnvImage);
         } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
-            if (m_console.WaitForPrompt()) {
+            if (m_console->WaitForPrompt()) {
                 SendToConsole(flashImage->GetFlashCommand() + "\n");
             }
         }
@@ -112,7 +113,7 @@ public:
                 }
             }
         } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
-            if (m_console.WaitForPrompt()) {
+            if (m_console->WaitForPrompt()) {
                 SendToConsole("reset\n");
             }
         }
@@ -132,7 +133,7 @@ public:
 
     int ReceiveFromConsole(std::string &data)
     {
-        data = m_console.Get();
+        data = m_console->Get();
         return 0;
     }
 
@@ -158,7 +159,7 @@ private:
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
     uint8_t m_imageBuffer[m_imageBufferSize];
 
-    AstraConsole m_console;
+    std::unique_ptr<AstraConsole> m_console;
     enum AstraUbootConsole m_ubootConsole;
 
     std::string m_tempDir;
@@ -206,7 +207,7 @@ private:
 
             m_imageRequestCV.notify_one();
         } else {
-            m_console.Append(message);
+            m_console->Append(message);
         }
     }
 
