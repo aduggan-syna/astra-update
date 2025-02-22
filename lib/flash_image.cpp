@@ -2,10 +2,14 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include "flash_image.hpp"
+#include "astra_log.hpp"
 
 #include "emmc_flash_image.hpp"
 
-const std::string FlashImageTypeToString(FlashImageType type) {
+const std::string FlashImageTypeToString(FlashImageType type)
+{
+    ASTRA_LOG;
+
     std::string str = "unknown";
 
     switch (type) {
@@ -22,7 +26,10 @@ const std::string FlashImageTypeToString(FlashImageType type) {
     return str;
 }
 
-FlashImageType StringToFlashImageType(const std::string& str) {
+FlashImageType StringToFlashImageType(const std::string& str)
+{
+    ASTRA_LOG;
+
     if (str == "spi") {
         return FLASH_IMAGE_TYPE_SPI;
     } else if (str == "nand") {
@@ -36,6 +43,8 @@ FlashImageType StringToFlashImageType(const std::string& str) {
 
 std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath, std::string manifest)
 {
+    ASTRA_LOG;
+
     FlashImageType flashImageType;
     std::string bootFirmware;
     std::string chipName;
@@ -54,10 +63,10 @@ std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
         flashImageType = StringToFlashImageType(manifestNode["image_type"].as<std::string>());
     }
     catch (const YAML::BadFile& e) {
-        std::cerr << "Error: Unable to open the manifest file: " << e.what() << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Unable to open the manifest file: " << e.what() << endLog;
         throw std::invalid_argument("Unknown file");
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << e.what() << endLog;
         throw std::invalid_argument("Invalid Manifest");
     }
 

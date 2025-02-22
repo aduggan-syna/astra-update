@@ -4,9 +4,12 @@
 #include <cstring>
 
 #include "usb_device.hpp"
+#include "astra_log.hpp"
 
 USBDevice::USBDevice(libusb_device *device, libusb_context *ctx)
 {
+    ASTRA_LOG;
+
     m_device = libusb_ref_device(device);
     m_ctx = ctx;
     m_handle = nullptr;
@@ -17,6 +20,8 @@ USBDevice::USBDevice(libusb_device *device, libusb_context *ctx)
 
 USBDevice::~USBDevice()
 {
+    ASTRA_LOG;
+
     if (m_open) {
         Close();
     }
@@ -26,6 +31,8 @@ USBDevice::~USBDevice()
 
 int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size)> usbEventCallback)
 {
+    ASTRA_LOG;
+
     if (m_handle) {
         return 0;
     }
@@ -38,12 +45,12 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
 
     int ret = libusb_open(m_device, &m_handle);
     if (ret < 0) {
-        std::cerr << "Failed to open USB device: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open USB device: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
     if (m_handle == nullptr) {
-        std::cerr << "Failed to open USB device" << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open USB device" << endLog;
         return 1;
     }
 
@@ -51,35 +58,35 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
 
     ret = libusb_get_config_descriptor(libusb_get_device(m_handle), 0, &m_config);
     if (ret < 0) {
-        std::cerr << "Failed to get config descriptor: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get config descriptor: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
-    std::cout << "Configuration Descriptor:" << std::endl;
-    std::cout << "  bLength: " << static_cast<int>(m_config->bLength) << std::endl;
-    std::cout << "  bDescriptorType: " << static_cast<int>(m_config->bDescriptorType) << std::endl;
-    std::cout << "  wTotalLength: " << m_config->wTotalLength << std::endl;
-    std::cout << "  bNumInterfaces: " << static_cast<int>(m_config->bNumInterfaces) << std::endl;
-    std::cout << "  bConfigurationValue: " << static_cast<int>(m_config->bConfigurationValue) << std::endl;
-    std::cout << "  iConfiguration: " << static_cast<int>(m_config->iConfiguration) << std::endl;
-    std::cout << "  bmAttributes: " << static_cast<int>(m_config->bmAttributes) << std::endl;
-    std::cout << "  MaxPower: " << static_cast<int>(m_config->MaxPower) << std::endl;
+    log(ASTRA_LOG_LEVEL_INFO) << "Configuration Descriptor:" << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  bLength: " << static_cast<int>(m_config->bLength) << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  bDescriptorType: " << static_cast<int>(m_config->bDescriptorType) << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  wTotalLength: " << m_config->wTotalLength << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  bNumInterfaces: " << static_cast<int>(m_config->bNumInterfaces) << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  bConfigurationValue: " << static_cast<int>(m_config->bConfigurationValue) << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  iConfiguration: " << static_cast<int>(m_config->iConfiguration) << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  bmAttributes: " << static_cast<int>(m_config->bmAttributes) << endLog;
+    log(ASTRA_LOG_LEVEL_INFO) << "  MaxPower: " << static_cast<int>(m_config->MaxPower) << endLog;
 
     unsigned char serialNumber[256];
     libusb_device_descriptor desc;
     ret = libusb_get_device_descriptor(m_device, &desc);
     if (ret < 0) {
-        std::cerr << "Failed to get device descriptor: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get device descriptor: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
     if (desc.iSerialNumber != 0) {
         ret = libusb_get_string_descriptor_ascii(m_handle, desc.iSerialNumber, serialNumber, sizeof(serialNumber));
         if (ret < 0) {
-            std::cerr << "Failed to get serial number: " << libusb_error_name(ret) << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get serial number: " << libusb_error_name(ret) << endLog;
         } else {
             m_serialNumber = std::string(serialNumber, serialNumber + ret);
-            std::cout << "Serial number: " << m_serialNumber << std::endl;
+            log(ASTRA_LOG_LEVEL_INFO) << "Serial number: " << m_serialNumber << endLog;
         }
     }
 
@@ -89,7 +96,7 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     int numElementsInPath = libusb_get_port_numbers(libusb_get_device(m_handle), portNumbers, 8);
     std::stringstream usbPathStream;
     usbPathStream << static_cast<int>(bus) << "-";
-    std::cout << "Number of Elements in Path: " << numElementsInPath << std::endl;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Number of Elements in Path: " << numElementsInPath << endLog;
     if (numElementsInPath > 0) {
         usbPathStream << static_cast<int>(portNumbers[0]);
         for (int i = 1; i < numElementsInPath; ++i) {
@@ -98,17 +105,17 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     }
     delete[] portNumbers;
     m_usbPath = usbPathStream.str();
-    std::cout << "USB Path: " << usbPathStream.str() << std::endl;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "USB Path: " << usbPathStream.str() << endLog;
 
     ret = libusb_detach_kernel_driver(m_handle, 0);
     if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
-        std::cerr << "Failed to detach kernel driver: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to detach kernel driver: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
     ret = libusb_claim_interface(m_handle, 0);
     if (ret < 0) {
-        std::cerr << "Failed to claim interface: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to claim interface: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
@@ -116,26 +123,26 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
         const libusb_interface &interface = m_config->interface[i];
         for (int j = 0; j < interface.num_altsetting; ++j) {
             const libusb_interface_descriptor &altsetting = interface.altsetting[j];
-            std::cout << "Interface Descriptor:" << std::endl;
-            std::cout << "  bLength: " << static_cast<int>(altsetting.bLength) << std::endl;
-            std::cout << "  bDescriptorType: " << static_cast<int>(altsetting.bDescriptorType) << std::endl;
-            std::cout << "  bInterfaceNumber: " << static_cast<int>(altsetting.bInterfaceNumber) << std::endl;
-            std::cout << "  bAlternateSetting: " << static_cast<int>(altsetting.bAlternateSetting) << std::endl;
-            std::cout << "  bNumEndpoints: " << static_cast<int>(altsetting.bNumEndpoints) << std::endl;
-            std::cout << "  bInterfaceClass: " << static_cast<int>(altsetting.bInterfaceClass) << std::endl;
-            std::cout << "  bInterfaceSubClass: " << static_cast<int>(altsetting.bInterfaceSubClass) << std::endl;
-            std::cout << "  bInterfaceProtocol: " << static_cast<int>(altsetting.bInterfaceProtocol) << std::endl;
-            std::cout << "  iInterface: " << static_cast<int>(altsetting.iInterface) << std::endl;
+            log(ASTRA_LOG_LEVEL_INFO) << "Interface Descriptor:" << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bLength: " << static_cast<int>(altsetting.bLength) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bDescriptorType: " << static_cast<int>(altsetting.bDescriptorType) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bInterfaceNumber: " << static_cast<int>(altsetting.bInterfaceNumber) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bAlternateSetting: " << static_cast<int>(altsetting.bAlternateSetting) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bNumEndpoints: " << static_cast<int>(altsetting.bNumEndpoints) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bInterfaceClass: " << static_cast<int>(altsetting.bInterfaceClass) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bInterfaceSubClass: " << static_cast<int>(altsetting.bInterfaceSubClass) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  bInterfaceProtocol: " << static_cast<int>(altsetting.bInterfaceProtocol) << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "  iInterface: " << static_cast<int>(altsetting.iInterface) << endLog;
 
             for (int k = 0; k < altsetting.bNumEndpoints; ++k) {
                 const libusb_endpoint_descriptor &endpoint = altsetting.endpoint[k];
-                std::cout << "Endpoint Descriptor:" << std::endl;
-                std::cout << "  bLength: " << static_cast<int>(endpoint.bLength) << std::endl;
-                std::cout << "  bDescriptorType: " << static_cast<int>(endpoint.bDescriptorType) << std::endl;
-                std::cout << "  bEndpointAddress: " << static_cast<int>(endpoint.bEndpointAddress) << std::endl;
-                std::cout << "  bmAttributes: " << static_cast<int>(endpoint.bmAttributes) << std::endl;
-                std::cout << "  wMaxPacketSize: " << endpoint.wMaxPacketSize << std::endl;
-                std::cout << "  bInterval: " << static_cast<int>(endpoint.bInterval) << std::endl;
+                log(ASTRA_LOG_LEVEL_INFO) << "Endpoint Descriptor:" << endLog;
+                log(ASTRA_LOG_LEVEL_INFO) << "  bLength: " << static_cast<int>(endpoint.bLength) << endLog;
+                log(ASTRA_LOG_LEVEL_INFO) << "  bDescriptorType: " << static_cast<int>(endpoint.bDescriptorType) << endLog;
+                log(ASTRA_LOG_LEVEL_INFO) << "  bEndpointAddress: " << static_cast<int>(endpoint.bEndpointAddress) << endLog;
+                log(ASTRA_LOG_LEVEL_INFO) << "  bmAttributes: " << static_cast<int>(endpoint.bmAttributes) << endLog;
+                log(ASTRA_LOG_LEVEL_INFO) << "  wMaxPacketSize: " << endpoint.wMaxPacketSize << endLog;
+                log(ASTRA_LOG_LEVEL_INFO) << "  bInterval: " << static_cast<int>(endpoint.bInterval) << endLog;
 
                 if (endpoint.bEndpointAddress & 0x80) {
                     if (endpoint.bmAttributes == 3) {
@@ -157,7 +164,7 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
 
                 ret = libusb_clear_halt(m_handle, endpoint.bEndpointAddress);
                 if (ret < 0) {
-                    std::cerr << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << std::endl;
+                    log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
                     return 1;
                 }
             }
@@ -166,12 +173,12 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
 
     m_inputInterruptXfer = libusb_alloc_transfer(0);
     if (!m_inputInterruptXfer) {
-        std::cerr << "Failed to allocate input interrupt transfer" << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to allocate input interrupt transfer" << endLog;
         return 1;
     }
     m_outputInterruptXfer = libusb_alloc_transfer(0);
     if (!m_outputInterruptXfer) {
-        std::cerr << "Failed to allocate output interrupt transfer" << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to allocate output interrupt transfer" << endLog;
         return 1;
     }
 
@@ -185,7 +192,7 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
 
     ret = libusb_submit_transfer(m_inputInterruptXfer);
     if (ret < 0) {
-        std::cerr << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << endLog;
     }
 
     m_running = true;
@@ -195,6 +202,8 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
 
 void USBDevice::Close()
 {
+    ASTRA_LOG;
+
     if (m_running) {
 
         m_running = false;
@@ -232,15 +241,17 @@ void USBDevice::Close()
 
 int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
 {
+    ASTRA_LOG;
+
     if (!m_open) {
         return 1;
     }
 
-    std::cout << "Reading from USB device" << std::endl;
-    std::cout << "  Bulk In Endpoint: " << static_cast<int>(m_bulkInEndpoint) << std::endl;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Reading from USB device" << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "  Bulk In Endpoint: " << static_cast<int>(m_bulkInEndpoint) << endLog;
     int ret = libusb_bulk_transfer(m_handle, m_bulkInEndpoint, data, size, transferred, m_bulkTransferTimeout);
     if (ret < 0) {
-        std::cerr << "Failed to read from USB device: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to read from USB device: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
@@ -249,22 +260,24 @@ int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
 
 int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
 {
+    ASTRA_LOG;
+
     if (!m_open) {
         return 1;
     }
 
-    std::cout << "Writing to USB device" << std::endl;
-    std::cout << "  Bulk Out Endpoint: " << static_cast<int>(m_bulkOutEndpoint) << std::endl;
-    std::cout << "  Length: " << size << std::endl;
-    std::cout << "  Data: ";
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Writing to USB device" << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "  Bulk Out Endpoint: " << static_cast<int>(m_bulkOutEndpoint) << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "  Length: " << size << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "  Data: ";
     for (size_t i = 0; i < 16 && i < size; ++i) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]) << " ";
+        log << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]) << " ";
     }
-    std::cout << std::dec << std::endl;
+    log << std::dec << endLog;
 
     int ret = libusb_bulk_transfer(m_handle, m_bulkOutEndpoint, const_cast<uint8_t*>(data), size, transferred, m_bulkTransferTimeout);
     if (ret < 0) {
-        std::cerr << "Failed to write to USB device: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write to USB device: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
@@ -273,18 +286,20 @@ int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
 
 int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
 {
+    ASTRA_LOG;
+
     if (!m_open) {
         return 1;
     }
 
-    std::cout << "Sending interrupt out transfer" << std::endl;
-    std::cout << "  Interrupt Out Endpoint: " << static_cast<int>(m_interruptOutEndpoint) << std::endl;
-    std::cout << "  Length: " << size << std::endl;
-    std::cout << "  Data: ";
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Sending interrupt out transfer" << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "  Interrupt Out Endpoint: " << static_cast<int>(m_interruptOutEndpoint) << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "  Length: " << size << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "  Data: ";
     for (size_t i = 0; i < 16 && i < size; ++i) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]) << " ";
+        log << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]) << " ";
     }
-    std::cout << std::dec << std::endl;
+    log << std::dec << endLog;
 
     std::memcpy(m_interruptOutBuffer, data, size);
 
@@ -293,7 +308,7 @@ int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
 
     int ret = libusb_submit_transfer(m_outputInterruptXfer);
     if (ret < 0) {
-        std::cerr << "Failed to submit output interrupt transfer: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit output interrupt transfer: " << libusb_error_name(ret) << endLog;
         return 1;
     }
 
@@ -302,12 +317,14 @@ int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
 
 void USBDevice::DeviceThread()
 {
+    ASTRA_LOG;
+
     int ret;
 
     while (m_running) {
         ret = libusb_handle_events(m_ctx);
         if (ret < 0) {
-            std::cerr << "Failed to handle events: " << libusb_error_name(ret) << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to handle events: " << libusb_error_name(ret) << endLog;
             break;
         }
     }
@@ -315,20 +332,22 @@ void USBDevice::DeviceThread()
 
 void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)
 {
+    ASTRA_LOG;
+
     USBDevice *device = static_cast<USBDevice*>(transfer->user_data);
     
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
         device->m_usbEventCallback(USB_DEVICE_EVENT_INTERRUPT, transfer->buffer, transfer->actual_length);
     } else if (transfer->status == LIBUSB_TRANSFER_NO_DEVICE) {
-        std::cerr << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_NO_DEVICE, nullptr, 0);
     } else {
-        std::cerr << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << endLog;
     }
 
-    std::cout << "Resubmitting input interrupt transfer" << std::endl;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Resubmitting input interrupt transfer" << endLog;
     int ret = libusb_submit_transfer(transfer);
     if (ret < 0) {
-        std::cerr << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << endLog;
     }
 }

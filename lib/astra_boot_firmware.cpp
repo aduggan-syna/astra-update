@@ -6,9 +6,12 @@
 
 #include "astra_boot_firmware.hpp"
 #include "image.hpp"
+#include "astra_log.hpp"
 
 int AstraBootFirmware::LoadManifest(std::string manifestPath)
 {
+    ASTRA_LOG;
+
     try {
         YAML::Node manifest = YAML::LoadFile(manifestPath);
 
@@ -21,16 +24,16 @@ int AstraBootFirmware::LoadManifest(std::string manifestPath)
         m_vendorId = std::stoi(manifest["vendor_id"].as<std::string>(), nullptr, 16);
         m_productId = std::stoi(manifest["product_id"].as<std::string>(), nullptr, 16);
 
-        std::cout << "Loaded boot firmware: " << m_chipName << " " << m_boardName << std::endl;
-        std::cout << "ID: " << m_id << std::endl;
-        std::cout << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "gen3") << std::endl;
-        std::cout << "Vendor ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_vendorId << std::endl;
-        std::cout << "Product ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_productId << std::endl;
+        log(ASTRA_LOG_LEVEL_INFO) << "Loaded boot firmware: " << m_chipName << " " << m_boardName << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "ID: " << m_id << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "gen3") << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Vendor ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_vendorId << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Product ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_productId << endLog;
     } catch (const YAML::BadFile& e) {
-        std::cerr << "Error: Unable to open the manifest file: " << e.what() << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Unable to open the manifest file: " << e.what() << endLog;
         return -1;
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << e.what() << endLog;
         return -1;
     }
 
@@ -39,11 +42,13 @@ int AstraBootFirmware::LoadManifest(std::string manifestPath)
 
 int AstraBootFirmware::Load()
 {
+    ASTRA_LOG;
+
     int ret;
 
     if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path)) {
         for (const auto& entry : std::filesystem::directory_iterator(m_path)) {
-                std::cout << "Found file: " << entry.path() << std::endl;
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Found file: " << entry.path() << endLog;
                 if (entry.path().filename().string() == "manifest.yaml") {
                     ret = LoadManifest(entry.path().string());
                     if (ret < 0) {
@@ -56,11 +61,12 @@ int AstraBootFirmware::Load()
         }
 
     m_directoryName = std::filesystem::path(m_path).filename().string();
-    std::cout << "Loaded boot firmware: " << m_directoryName << std::endl;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Loaded boot firmware: " << m_directoryName << endLog;
 
     return 0;
 }
 
 AstraBootFirmware::~AstraBootFirmware()
 {
+    ASTRA_LOG;
 }

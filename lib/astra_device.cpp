@@ -18,20 +18,26 @@
 #include "usb_device.hpp"
 #include "image.hpp"
 #include "utils.hpp"
+#include "astra_log.hpp"
 
 class AstraDevice::AstraDeviceImpl {
 public:
     AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_usbDevice{std::move(device)}
     {
+        ASTRA_LOG;
+
         m_tempDir = MakeTempDirectory();
         if (m_tempDir.empty()) {
-            std::cerr << "Failed to create temporary directory" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to create temporary directory" << endLog;
         }
 
         m_console = std::make_unique<AstraConsole>(m_tempDir);
     }
 
-    ~AstraDeviceImpl() {
+    ~AstraDeviceImpl()
+    {
+        ASTRA_LOG;
+
         Shutdown();
 
         if (m_imageRequestThread.joinable()) {
@@ -43,11 +49,17 @@ public:
         //RemoveTempDirectory(m_tempDir);
     }
 
-    void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback) {
+    void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback)
+    {
+        ASTRA_LOG;
+
         m_statusCallback = statusCallback;
     }
 
-    int Boot(std::shared_ptr<AstraBootFirmware> firmware) {
+    int Boot(std::shared_ptr<AstraBootFirmware> firmware)
+    {
+        ASTRA_LOG;
+
         int ret;
 
         m_ubootConsole = firmware->GetUbootConsole();
@@ -55,13 +67,13 @@ public:
 
         ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::USBEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         if (ret < 0) {
-            std::cerr << "Failed to open device" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open device" << endLog;
             return ret;
         }
 
         std::ofstream imageFile(m_tempDir + "/" + m_usbPathImageFilename);
         if (!imageFile) {
-            std::cerr << "Failed to open 06_IMAGE file" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open 06_IMAGE file" << endLog;
             return -1;
         }
 
@@ -82,13 +94,16 @@ public:
         return 0;
     }
 
-    int Update(std::shared_ptr<FlashImage> flashImage) {
+    int Update(std::shared_ptr<FlashImage> flashImage)
+    {
+        ASTRA_LOG;
+
         m_images->insert(m_images->end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         if (m_uEnvSupport) {
             std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
             std::ofstream uEnvFile(m_tempDir + "/" + m_uEnvFilename);
             if (!uEnvFile) {
-                std::cerr << "Failed to open uEnv.txt file" << std::endl;
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
                 return -1;
             }
             uEnvFile << uEnv;
@@ -103,7 +118,10 @@ public:
         return 0;
     }
 
-    int WaitForCompletion() {
+    int WaitForCompletion()
+    {
+        ASTRA_LOG;
+
         if (m_uEnvSupport) {
             for (;;) {
                 std::unique_lock<std::mutex> lock(m_deviceEventMutex);
@@ -123,9 +141,11 @@ public:
 
     int SendToConsole(const std::string &data)
     {
+        ASTRA_LOG;
+
         int ret = m_usbDevice->WriteInterruptData(reinterpret_cast<const uint8_t*>(data.c_str()), data.size());
         if (ret < 0) {
-            std::cerr << "Failed to send data to console" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send data to console" << endLog;
             return ret;
         }
         return 0;
@@ -133,6 +153,8 @@ public:
 
     int ReceiveFromConsole(std::string &data)
     {
+        ASTRA_LOG;
+
         data = m_console->Get();
         return 0;
     }
@@ -170,30 +192,35 @@ private:
     std::unique_ptr<Image> m_sizeRequestImage;
     std::unique_ptr<Image> m_uEnvImage;
 
-    void ImageRequestThread() {
+    void ImageRequestThread()
+    {
+        ASTRA_LOG;
+
         int ret = HandleImageRequests();
         if (ret < 0) {
-            std::cerr << "Failed to handle image request" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to handle image request" << endLog;
         }
     }
 
-    void HandleInterrupt(uint8_t *buf, size_t size) {
-        std::cout << "Interrupt received: size:" << size << std::endl;
+    void HandleInterrupt(uint8_t *buf, size_t size)
+    {
+        ASTRA_LOG;
+
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Interrupt received: size:" << size << endLog;
 
         for (size_t i = 0; i < size; ++i) {
-            std::cout << std::hex << static_cast<int>(buf[i]) << " ";
+            log << std::hex << static_cast<int>(buf[i]) << " ";
         }
-        std::cout << std::dec << std::endl;
+        log << std::dec << endLog;
 
         std::string message(reinterpret_cast<char *>(buf), size);
-        std::cout << "Message: " << message << std::endl;
 
         auto it = message.find(m_imageRequestString);
         if (it != std::string::npos) {
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             it += m_imageRequestString.size();
             m_imageType = buf[it];
-            std::cout << "Image type: " << std::hex << m_imageType << std::dec << std::endl;
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Image type: " << std::hex << m_imageType << std::dec << endLog;
             std::string imageName = message.substr(it + 1);
 
             // Strip off Null character
@@ -203,7 +230,7 @@ private:
             } else {
                 m_requestedImageName = imageName;
             }
-            std::cout << "Requested image name: '" << m_requestedImageName << "'" << std::endl;
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Requested image name: '" << m_requestedImageName << "'" << endLog;
 
             m_imageRequestCV.notify_one();
         } else {
@@ -211,7 +238,10 @@ private:
         }
     }
 
-    void USBEventHandler(USBDevice::USBEvent event, uint8_t *buf, size_t size) {
+    void USBEventHandler(USBDevice::USBEvent event, uint8_t *buf, size_t size)
+    {
+        ASTRA_LOG;
+
         if (event == USBDevice::USB_DEVICE_EVENT_INTERRUPT) {
             HandleInterrupt(buf, size);
         } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE) {
@@ -222,18 +252,20 @@ private:
 
     int UpdateImageSizeRequestFile(uint32_t fileSize)
     {
+        ASTRA_LOG;
+
         if (m_imageType > 0x79)
         {
             std::string imageName = m_sizeRequestImage->GetPath();
             FILE *sizeFile = fopen(imageName.c_str(), "w");
             if (!sizeFile) {
-                std::cerr << "Failed to open " << imageName << " file" << std::endl;
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open " << imageName << " file" << endLog;
                 return -1;
             }
-            std::cout << "Writing image size to 07_IMAGE: " << fileSize << std::endl;
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Writing image size to 07_IMAGE: " << fileSize << endLog;
 
             if (fwrite(&fileSize, sizeof(fileSize), 1, sizeFile) != 1) {
-                std::cerr << "Failed to write image size to file" << std::endl;
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write image size to file" << endLog;
                 fclose(sizeFile);
                 return -1;
             }
@@ -245,13 +277,15 @@ private:
 
     int SendImage(Image *image)
     {
+        ASTRA_LOG;
+
         int ret;
         int totalTransferred = 0;
         int transferred = 0;
 
         ret = image->Load();
         if (ret < 0) {
-            std::cerr << "Failed to load image" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to load image" << endLog;
             return ret;
         }
 
@@ -266,7 +300,7 @@ private:
         // Send the image header
         ret = m_usbDevice->Write(m_imageBuffer, imageHeaderSize, &transferred);
         if (ret < 0) {
-            std::cerr << "Failed to write image" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write image" << endLog;
             m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
             return ret;
         }
@@ -275,19 +309,19 @@ private:
 
         m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, ((double)totalTransferred / totalTransferSize) * 100, image->GetName());
 
-        std::cout << "Total transfer size: " << totalTransferSize << std::endl;
-        std::cout << "Total transferred: " << totalTransferred << std::endl;
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Total transfer size: " << totalTransferSize << endLog;
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Total transferred: " << totalTransferred << endLog;
         while (totalTransferred < totalTransferSize) {
             int dataBlockSize = image->GetDataBlock(m_imageBuffer, m_imageBufferSize);
             if (dataBlockSize < 0) {
-                std::cerr << "Failed to get data block" << std::endl;
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get data block" << endLog;
                 m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
                 return -1;
             }
 
             ret = m_usbDevice->Write(m_imageBuffer, dataBlockSize, &transferred);
             if (ret < 0) {
-                std::cerr << "Failed to write image" << std::endl;
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write image" << endLog;
                 m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
                 return ret;
             }
@@ -298,14 +332,14 @@ private:
         }
 
         if (totalTransferred != totalTransferSize) {
-            std::cerr << "Failed to transfer entire image" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to transfer entire image" << endLog;
             m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
             return -1;
         }
 
         ret = UpdateImageSizeRequestFile(image->GetSize());
         if (ret < 0) {
-            std::cerr << "Failed to update image size request file" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to update image size request file" << endLog;
         }
 
         m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_COMPLETE, 100, image->GetName());
@@ -315,6 +349,8 @@ private:
 
     int HandleImageRequests()
     {
+        ASTRA_LOG;
+
         int ret = 0;
 
         while (true) {
@@ -330,19 +366,21 @@ private:
                 size_t pos = m_requestedImageName.find('/');
                 imageNamePrefix = m_requestedImageName.substr(0, pos);
                 m_requestedImageName = m_requestedImageName.substr(pos + 1);
-                std::cout << "Requested image name prefix: '" << imageNamePrefix << "', requested Image Name: '" << m_requestedImageName << "'" << std::endl;
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Requested image name prefix: '" << imageNamePrefix << "', requested Image Name: '" << m_requestedImageName << "'" << endLog;
             }
 
             auto it = std::find_if(m_images->begin(), m_images->end(), [this](const Image &img) {
-                std::cout << "Comparing: " << img.GetName() << " to " << m_requestedImageName << std::endl;
+                ASTRA_LOG;
+
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Comparing: " << img.GetName() << " to " << m_requestedImageName << endLog;
                 for (char c : img.GetName()) {
-                    std::cout << std::hex << static_cast<int>(c) << " ";
+                    log << std::hex << static_cast<int>(c) << " ";
                 }
-                std::cout << " vs ";
+                log << " vs ";
                 for (char c : m_requestedImageName) {
-                    std::cout << std::hex << static_cast<int>(c) << " ";
+                    log << std::hex << static_cast<int>(c) << " ";
                 }
-                std::cout << std::dec << std::endl;
+                log << std::dec << endLog;
                 return img.GetName() == m_requestedImageName;
             });
 
@@ -353,7 +391,7 @@ private:
                 } else if (m_requestedImageName == m_usbPathImageFilename) {
                     image = m_usbPathImage.get();
                 } else {
-                    std::cerr << "Requested image not found: " << m_requestedImageName << std::endl;
+                    log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
                     return -1;
                 }
             } else {
@@ -362,7 +400,7 @@ private:
 
             ret = SendImage(image);
             if (ret < 0) {
-                std::cerr << "Failed to send image" << std::endl;
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send image" << endLog;
                 return ret;
             }
         }

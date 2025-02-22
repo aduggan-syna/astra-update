@@ -9,6 +9,7 @@
 #include "boot_firmware_collection.hpp"
 #include "usb_transport.hpp"
 #include "image.hpp"
+#include "astra_log.hpp"
 
 class AstraUpdate::AstraUpdateImpl {
 public:
@@ -22,6 +23,8 @@ public:
     int StartDeviceSearch(std::string bootFirmwareId,
         std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback)
     {
+        ASTRA_LOG;
+
         m_deviceAddedCallback = deviceAddedCallback;
 
         BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/home/aduggan/astra-usbboot-firmware");
@@ -37,23 +40,29 @@ public:
             return 1;
         }
 
-        std::cout << "USB transport initialized successfully" << std::endl;
+        log(ASTRA_LOG_LEVEL_DEBUG) << "USB transport initialized successfully" << endLog;
 
         return 0;
     }
 
     void StopDeviceSearch()
     {
-       m_transport.Shutdown();
+        ASTRA_LOG;
+
+        m_transport.Shutdown();
     }
 
     void SetBootFirmwarePath(std::string path)
     {
+        ASTRA_LOG;
+
         m_bootFirmwarePath = path;
     }
 
     std::shared_ptr<AstraBootFirmware> GetBootFirmware()
     {
+        ASTRA_LOG;
+
         return m_firmware;
     }
 
@@ -63,8 +72,11 @@ private:
     std::string m_bootFirmwarePath;
     std::shared_ptr<AstraBootFirmware> m_firmware;
 
-    void DeviceAddedCallback(std::unique_ptr<USBDevice> device) {
-        std::cout << "Device added AstraUpdateImpl::DeviceAddedCallback" << std::endl;
+    void DeviceAddedCallback(std::unique_ptr<USBDevice> device)
+    {
+        ASTRA_LOG;
+
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Device added AstraUpdateImpl::DeviceAddedCallback" << endLog;
         std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device));
 
         m_deviceAddedCallback(astraDevice);
@@ -94,4 +106,9 @@ void AstraUpdate::SetBootFirmwarePath(std::string path)
 std::shared_ptr<AstraBootFirmware> AstraUpdate::GetBootFirmware()
 {
     return pImpl->GetBootFirmware();
+}
+
+void AstraUpdate::InitializeLogging(const std::string &logPath, AstraLogLevel minLogLevel)
+{
+    AstraLogStore::getInstance().Open(logPath, minLogLevel);
 }

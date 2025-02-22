@@ -4,16 +4,19 @@
 #include <cstring>
 
 #include "image.hpp"
+#include "astra_log.hpp"
 
 int Image::Load()
 {
-    std::cout << "Loading image: " << m_imagePath << std::endl;
+    ASTRA_LOG;
+
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Loading image: " << m_imagePath << endLog;
     m_imageName = std::filesystem::path(m_imagePath).filename().string();
 
     FILE *fp = fopen(m_imagePath.c_str(), "rb");
     if (fp == nullptr) {
-        std::cerr << "Failed to open file: " << m_imagePath << std::endl;
-        std::cerr << "Error: " << strerror(errno) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open file: " << m_imagePath << endLog;
+        log(ASTRA_LOG_LEVEL_ERROR) << strerror(errno) << endLog;
         return -1;
     }
 
@@ -21,7 +24,7 @@ int Image::Load()
     fseek(fp, 0L, SEEK_END);
     size = ftell(fp);
     fseek(fp, 0L, SEEK_SET);
-    std::cout << "Image size: " << size << std::endl;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Image size: " << size << endLog;
 
     m_imageSize = size;
 
@@ -32,6 +35,8 @@ int Image::Load()
 
 int Image::GetDataBlock(uint8_t *data, size_t size)
 {
+    ASTRA_LOG;
+
     int readSize = size;
     if (m_imageSize < size) {
         readSize = m_imageSize;
@@ -52,5 +57,7 @@ int Image::GetDataBlock(uint8_t *data, size_t size)
 
 Image::~Image()
 {
+    ASTRA_LOG;
+
     m_file.close();
 }

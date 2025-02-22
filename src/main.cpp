@@ -27,6 +27,8 @@ int main() {
     AstraUpdate update;
     std::shared_ptr<FlashImage> flashImage;
 
+    update.InitializeLogging("stdout", ASTRA_LOG_LEVEL_ERROR);
+
     flashImage = FlashImage::FlashImageFactory("/home/aduggan/sl1640_gpiod");
 
     int ret = flashImage->Load();

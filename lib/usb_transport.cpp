@@ -3,8 +3,11 @@
 #include <libusb-1.0/libusb.h>
 
 #include "usb_transport.hpp"
+#include "astra_log.hpp"
 
 USBTransport::~USBTransport() {
+    ASTRA_LOG;
+
     Shutdown();
 
     if (m_ctx) {
@@ -14,27 +17,32 @@ USBTransport::~USBTransport() {
 
 void USBTransport::DeviceMonitorThread()
 {
+    ASTRA_LOG;
+
     int ret;
 
     while (m_running) {
         ret = libusb_handle_events(m_ctx);
         if (ret < 0) {
-            std::cerr << "Failed to handle events: " << libusb_error_name(ret) << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to handle events: " << libusb_error_name(ret) << endLog;
             break;
         }
     }
 }
 
-int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void(std::unique_ptr<USBDevice>)> deviceAddedCallback) {
+int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void(std::unique_ptr<USBDevice>)> deviceAddedCallback)
+{
+    ASTRA_LOG;
+
     int ret = libusb_init(&m_ctx);
     if (ret < 0) {
-        std::cerr << "Failed to initialize libusb: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to initialize libusb: " << libusb_error_name(ret) << endLog;
     }
 
     //libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
 
     if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
-        std::cerr << "Hotplug capability is not supported on this platform" << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Hotplug capability is not supported on this platform" << endLog;
         return 1;
     }
 
@@ -50,7 +58,7 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
                                              this,
                                              &m_callbackHandle);
     if (ret != LIBUSB_SUCCESS) {
-        std::cerr << "Failed to register hotplug callback: " << libusb_error_name(ret) << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to register hotplug callback: " << libusb_error_name(ret) << endLog;
     }
 
     m_running = true;
@@ -61,6 +69,8 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
 
 void USBTransport::Shutdown()
 {
+    ASTRA_LOG;
+
     if (m_running) {
 
         m_running = false;
@@ -79,45 +89,47 @@ void USBTransport::Shutdown()
 int LIBUSB_CALL USBTransport::HotplugEventCallback(libusb_context *ctx, libusb_device *device,
                                                 libusb_hotplug_event event, void *user_data)
 {
+    ASTRA_LOG;
+
     USBTransport *transport = static_cast<USBTransport*>(user_data);
 
     libusb_device_descriptor desc;
     int ret = libusb_get_device_descriptor(device, &desc);
     if (ret < 0) {
-        std::cerr << "Failed to get device descriptor" << std::endl;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get device descriptor" << endLog;
         return 1;
     }
 
     if (event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED) {
-        std::cout << "Device arrived: vid: 0x" << std::hex << std::uppercase << desc.idVendor << ", pid: 0x" << desc.idProduct << std::endl;
-        std::cout << "Device matches image" << std::endl;
+        log(ASTRA_LOG_LEVEL_INFO) << "Device arrived: vid: 0x" << std::hex << std::uppercase << desc.idVendor << ", pid: 0x" << desc.idProduct << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Device matches image" << endLog;
 
-        std::cout << "Device Descriptor:" << std::endl;
-        std::cout << "  bLength: " << static_cast<int>(desc.bLength) << std::endl;
-        std::cout << "  bDescriptorType: " << static_cast<int>(desc.bDescriptorType) << std::endl;
-        std::cout << "  bcdUSB: " << desc.bcdUSB << std::endl;
-        std::cout << "  bDeviceClass: " << static_cast<int>(desc.bDeviceClass) << std::endl;
-        std::cout << "  bDeviceSubClass: " << static_cast<int>(desc.bDeviceSubClass) << std::endl;
-        std::cout << "  bDeviceProtocol: " << static_cast<int>(desc.bDeviceProtocol) << std::endl;
-        std::cout << "  bMaxPacketSize0: " << static_cast<int>(desc.bMaxPacketSize0) << std::endl;
-        std::cout << "  idVendor: 0x" << std::hex << std::setw(4) << std::setfill('0') << desc.idVendor << std::endl;
-        std::cout << "  idProduct: 0x" << std::hex << std::setw(4) << std::setfill('0') << desc.idProduct << std::endl;
-        std::cout << "  bcdDevice: " << desc.bcdDevice << std::endl;
-        std::cout << "  iManufacturer: " << static_cast<int>(desc.iManufacturer) << std::endl;
-        std::cout << "  iProduct: " << static_cast<int>(desc.iProduct) << std::endl;
-        std::cout << "  iSerialNumber: " << static_cast<int>(desc.iSerialNumber) << std::endl;
-        std::cout << "  bNumConfigurations: " << static_cast<int>(desc.bNumConfigurations) << std::endl;
+        log(ASTRA_LOG_LEVEL_INFO) << "Device Descriptor:" << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bLength: " << static_cast<int>(desc.bLength) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bDescriptorType: " << static_cast<int>(desc.bDescriptorType) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bcdUSB: " << desc.bcdUSB << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bDeviceClass: " << static_cast<int>(desc.bDeviceClass) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bDeviceSubClass: " << static_cast<int>(desc.bDeviceSubClass) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bDeviceProtocol: " << static_cast<int>(desc.bDeviceProtocol) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bMaxPacketSize0: " << static_cast<int>(desc.bMaxPacketSize0) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  idVendor: 0x" << std::hex << std::setw(4) << std::setfill('0') << desc.idVendor << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  idProduct: 0x" << std::hex << std::setw(4) << std::setfill('0') << desc.idProduct << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bcdDevice: " << desc.bcdDevice << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  iManufacturer: " << static_cast<int>(desc.iManufacturer) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  iProduct: " << static_cast<int>(desc.iProduct) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  iSerialNumber: " << static_cast<int>(desc.iSerialNumber) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "  bNumConfigurations: " << static_cast<int>(desc.bNumConfigurations) << endLog;
 
         std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device, transport->m_ctx);
         if (transport->m_deviceAddedCallback) {
             try {
                 transport->m_deviceAddedCallback(std::move(usbDevice));
             } catch (const std::bad_function_call& e) {
-                std::cerr << "Error: " << e.what() << std::endl;
+                log(ASTRA_LOG_LEVEL_ERROR) << "Error: " << e.what() << endLog;
                 return 1;
             }
         } else {
-            std::cerr << "No device added callback" << std::endl;
+            log(ASTRA_LOG_LEVEL_ERROR) << "No device added callback" << endLog;
         }
     }
 

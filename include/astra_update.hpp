@@ -6,6 +6,7 @@
 
 #include "astra_device.hpp"
 #include "flash_image.hpp"
+#include "astra_log.hpp"
 
 class AstraUpdate {
 public:
@@ -17,6 +18,7 @@ public:
     void StopDeviceSearch();
 
     void SetBootFirmwarePath(std::string path);
+    void InitializeLogging(const std::string &logPath, AstraLogLevel minLogLevel);
 
     std::shared_ptr<AstraBootFirmware> GetBootFirmware();
 
