@@ -29,6 +29,8 @@ int AstraBootFirmware::LoadManifest(std::string manifestPath)
         log(ASTRA_LOG_LEVEL_INFO) << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "gen3") << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "Vendor ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_vendorId << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "Product ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_productId << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "U-Boot console: " << (m_ubootConsole == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "uEnv support: " << (m_uEnvSupport ? "true" : "false") << endLog;
     } catch (const YAML::BadFile& e) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Unable to open the manifest file: " << e.what() << endLog;
         return -1;
