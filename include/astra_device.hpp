@@ -27,7 +27,7 @@ class AstraBootFirmware;
 class AstraDevice
 {
 public:
-    AstraDevice(std::unique_ptr<USBDevice> device);
+    AstraDevice(std::unique_ptr<USBDevice> device, const std::string &tempDir);
     ~AstraDevice();
 
     void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback);

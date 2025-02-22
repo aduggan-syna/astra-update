@@ -22,14 +22,10 @@
 
 class AstraDevice::AstraDeviceImpl {
 public:
-    AstraDeviceImpl(std::unique_ptr<USBDevice> device) : m_usbDevice{std::move(device)}
+    AstraDeviceImpl(std::unique_ptr<USBDevice> device, const std::string &tempDir)
+        : m_usbDevice{std::move(device)}, m_tempDir{tempDir}
     {
         ASTRA_LOG;
-
-        m_tempDir = MakeTempDirectory();
-        if (m_tempDir.empty()) {
-            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to create temporary directory" << endLog;
-        }
 
         m_console = std::make_unique<AstraConsole>(m_tempDir);
     }
@@ -46,7 +42,6 @@ public:
         m_console->Shutdown();
 
         m_usbDevice->Close();
-        //RemoveTempDirectory(m_tempDir);
     }
 
     void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback)
@@ -419,8 +414,8 @@ private:
 
 };
 
-AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device) : 
-    pImpl{std::make_unique<AstraDeviceImpl>(std::move(device))} {}
+AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device, const std::string &tempDir) :
+    pImpl{std::make_unique<AstraDeviceImpl>(std::move(device), tempDir)} {}
 
 AstraDevice::~AstraDevice() = default;
 

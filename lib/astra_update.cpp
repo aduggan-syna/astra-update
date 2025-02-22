@@ -10,11 +10,18 @@
 #include "usb_transport.hpp"
 #include "image.hpp"
 #include "astra_log.hpp"
+#include "utils.hpp"
 
 class AstraUpdate::AstraUpdateImpl {
 public:
     AstraUpdateImpl()
     {
+        ASTRA_LOG;
+
+        m_tempDir = MakeTempDirectory();
+        if (m_tempDir.empty()) {
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to create temporary directory" << endLog;
+        }
     }
 
     ~AstraUpdateImpl() {
@@ -27,7 +34,7 @@ public:
 
         m_deviceAddedCallback = deviceAddedCallback;
 
-        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/home/aduggan/astra-usbboot-firmware");
+        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/Users/aduggan/syna/astra-usbboot-firmware");
         bootFirmwareCollection.Load();
 
         m_firmware = std::make_shared<AstraBootFirmware>(bootFirmwareCollection.GetFirmware(bootFirmwareId));
@@ -66,18 +73,28 @@ public:
         return m_firmware;
     }
 
+    void InitializeLogging(AstraLogLevel minLogLevel, const std::string &logPath)
+    {
+        std::string modifiedLogPath = logPath;
+        if (logPath == "") {
+            modifiedLogPath = m_tempDir + "/astra_update.log";
+        }
+        AstraLogStore::getInstance().Open(modifiedLogPath, minLogLevel);
+    }
+
 private:
     USBTransport m_transport;
     std::function<void(std::shared_ptr<AstraDevice>)> m_deviceAddedCallback;
     std::string m_bootFirmwarePath;
     std::shared_ptr<AstraBootFirmware> m_firmware;
+    std::string m_tempDir;
 
     void DeviceAddedCallback(std::unique_ptr<USBDevice> device)
     {
         ASTRA_LOG;
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Device added AstraUpdateImpl::DeviceAddedCallback" << endLog;
-        std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device));
+        std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device), m_tempDir);
 
         m_deviceAddedCallback(astraDevice);
     }
@@ -108,7 +125,7 @@ std::shared_ptr<AstraBootFirmware> AstraUpdate::GetBootFirmware()
     return pImpl->GetBootFirmware();
 }
 
-void AstraUpdate::InitializeLogging(const std::string &logPath, AstraLogLevel minLogLevel)
+void AstraUpdate::InitializeLogging(AstraLogLevel minLogLevel, const std::string &logPath)
 {
-    AstraLogStore::getInstance().Open(logPath, minLogLevel);
+    pImpl->InitializeLogging(minLogLevel, logPath);
 }

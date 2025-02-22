@@ -18,7 +18,7 @@ public:
     void StopDeviceSearch();
 
     void SetBootFirmwarePath(std::string path);
-    void InitializeLogging(const std::string &logPath, AstraLogLevel minLogLevel);
+    void InitializeLogging(AstraLogLevel minLogLevel, const std::string &logPath = "");
 
     std::shared_ptr<AstraBootFirmware> GetBootFirmware();
 
