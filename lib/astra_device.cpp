@@ -59,6 +59,7 @@ public:
 
         m_ubootConsole = firmware->GetUbootConsole();
         m_uEnvSupport = firmware->GetUEnvSupport();
+        m_finalBootImage = firmware->GetFinalBootImage();
 
         ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::USBEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         if (ret < 0) {
@@ -84,6 +85,7 @@ public:
         std::vector<Image> firmwareImages = firmware->GetImages();
         m_images->insert(m_images->end(), firmwareImages.begin(), firmwareImages.end());
 
+        m_state = ASTRA_DEVICE_STATE_BOOT_START;
         m_imageRequestThread= std::thread(std::bind(&AstraDeviceImpl::ImageRequestThread, this));
 
         return 0;
@@ -92,6 +94,8 @@ public:
     int Update(std::shared_ptr<FlashImage> flashImage)
     {
         ASTRA_LOG;
+
+        m_finalUpdateImage = flashImage->GetFinalImage();
 
         m_images->insert(m_images->end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         if (m_uEnvSupport) {
@@ -175,6 +179,7 @@ private:
     const std::string m_imageRequestString = "i*m*g*r*q*";
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
     uint8_t m_imageBuffer[m_imageBufferSize];
+    std::string m_finalBootImage;
 
     std::unique_ptr<AstraConsole> m_console;
     enum AstraUbootConsole m_ubootConsole;
@@ -183,6 +188,7 @@ private:
     const std::string m_usbPathImageFilename = "06_IMAGE";
     const std::string m_sizeRequestImageFilename = "07_IMAGE";
     const std::string m_uEnvFilename = "uEnv.txt";
+    std::string m_finalUpdateImage;
     std::unique_ptr<Image> m_usbPathImage;
     std::unique_ptr<Image> m_sizeRequestImage;
     std::unique_ptr<Image> m_uEnvImage;
@@ -212,6 +218,10 @@ private:
 
         auto it = message.find(m_imageRequestString);
         if (it != std::string::npos) {
+            if (m_state == ASTRA_DEVICE_STATE_BOOT_COMPLETE) {
+                m_state = ASTRA_DEVICE_STATE_UPDATE_START;
+            }
+
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             it += m_imageRequestString.size();
             m_imageType = buf[it];
@@ -396,7 +406,22 @@ private:
             ret = SendImage(image);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send image" << endLog;
+                if (m_state == ASTRA_DEVICE_STATE_BOOT_START) {
+                    m_state = ASTRA_DEVICE_STATE_BOOT_FAIL;
+                } else if (m_state == ASTRA_DEVICE_STATE_UPDATE_START) {
+                    m_state = ASTRA_DEVICE_STATE_UPDATE_FAIL;
+                }
+                m_statusCallback(m_state, 0, "Failed to send image");
                 return ret;
+            } else {
+                if (image->GetName() == m_finalBootImage) {
+                    m_state = ASTRA_DEVICE_STATE_BOOT_COMPLETE;
+                    m_statusCallback(ASTRA_DEVICE_STATE_BOOT_COMPLETE, 100, image->GetName());
+                } else if (image->GetName() == m_finalUpdateImage) {
+                    m_state = ASTRA_DEVICE_STATE_UPDATE_COMPLETE;
+                    m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_COMPLETE, 100, image->GetName());
+                }
+                m_statusCallback(m_state, 100, "Success");
             }
         }
 

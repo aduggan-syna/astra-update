@@ -43,3 +43,14 @@ private:
     class AstraDeviceImpl;
     std::unique_ptr<AstraDeviceImpl> pImpl;
 };
+
+class AstraDeviceStatusResponse
+{
+public:
+    AstraDeviceStatusResponse(AstraDeviceState state, double progress, std::string message)
+        : m_state{state}, m_progress{progress}, m_message{message} {}
+
+    AstraDeviceState GetState() const { return m_state; }
+    double GetProgress() const { return m_progress; }
+    std::string GetMessage() const { return m_message; }
+};

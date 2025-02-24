@@ -1,5 +1,8 @@
 #include <iostream>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 #include "image.hpp"
 #include "emmc_flash_image.hpp"
@@ -25,5 +28,35 @@ int EmmcFlashImage::Load()
         }
     }
 
+    ParseEmmcPartList();
+
     return 0;
+}
+
+void EmmcFlashImage::ParseEmmcPartList()
+{
+    ASTRA_LOG;
+
+    std::string emmcPartListPath;
+    for (const auto& image : m_images) {
+        if (image.GetName() == "emmc_part_list") {
+            emmcPartListPath = image.GetPath();
+            break;
+        }
+    }
+
+    std::ifstream file(emmcPartListPath);
+    std::string line;
+    std::string lastEntryName;
+
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string name;
+        if (std::getline(iss, name, ',')) {
+            lastEntryName = name;
+        }
+    }
+
+    m_finalImage = lastEntryName;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Final image: " << m_finalImage << endLog;
 }

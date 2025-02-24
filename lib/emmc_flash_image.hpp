@@ -12,4 +12,7 @@ public:
     {}
 
     int Load() override;
+
+private:
+    void ParseEmmcPartList();
 };
