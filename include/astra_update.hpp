@@ -3,26 +3,69 @@
 #include <string>
 #include <memory>
 #include <functional>
+#include <variant>
 
 #include "astra_device.hpp"
 #include "flash_image.hpp"
 #include "astra_log.hpp"
 
+enum AstraUpdateStatus {
+    ASTRA_UPDATE_STATUS_START,
+    ASTRA_UPDATE_STATUS_SHUTDOWN,
+};
+
 class AstraUpdate {
 public:
-    AstraUpdate();
+    AstraUpdate(std::shared_ptr<FlashImage> flashImage,
+        std::string bootFirmwarePath,
+        std::function<void(AstraUpdateResponse)> responseCallback,
+        bool updateContinuously = false,
+        AstraLogLevel minLogLevel = ASTRA_LOG_LEVEL_WARNING,
+        const std::string &logPath = "");
     ~AstraUpdate();
 
-    int StartDeviceSearch(std::string bootFirmwareId,
-        std::function<void(std::shared_ptr<AstraDevice>)> deviceAddedCallback);
-    void StopDeviceSearch();
-
-    void SetBootFirmwarePath(std::string path);
-    void InitializeLogging(AstraLogLevel minLogLevel, const std::string &logPath = "");
+    int StartDeviceSearch(std::string bootFirmwareId);
 
     std::shared_ptr<AstraBootFirmware> GetBootFirmware();
+
+    void Shutdown();
 
 private:
     class AstraUpdateImpl;
     std::unique_ptr<AstraUpdateImpl> pImpl;
+};
+
+struct UpdateResponse {
+    AstraUpdateStatus m_updateStatus;
+    std::string m_updateMessage;
+};
+
+class AstraUpdateResponse {
+public:
+    using ResponseVariant = std::variant<UpdateResponse, DeviceResponse>;
+
+    AstraUpdateResponse(UpdateResponse updateResponse)
+        : response(updateResponse) {}
+
+    AstraUpdateResponse(DeviceResponse deviceResponse)
+        : response(deviceResponse) {}
+
+    bool IsUpdateResponse() const {
+        return std::holds_alternative<UpdateResponse>(response);
+    }
+
+    bool IsDeviceResponse() const {
+        return std::holds_alternative<DeviceResponse>(response);
+    }
+
+    const UpdateResponse& GetUpdateResponse() const {
+        return std::get<UpdateResponse>(response);
+    }
+
+    const DeviceResponse& GetDeviceResponse() const {
+        return std::get<DeviceResponse>(response);
+    }
+
+private:
+    ResponseVariant response;
 };

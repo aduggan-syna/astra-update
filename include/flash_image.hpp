@@ -29,6 +29,7 @@ public:
     std::string GetBoardName() const { return m_boardName; }
     std::string GetImageDirectory() const { return m_directoryName; }
     std::string GetFlashCommand() const { return m_flashCommand; }
+    const std::string &GetFinalImage() const { return m_finalImage; }
 
     const std::vector<Image>& GetImages() const { return m_images; }
 
@@ -43,4 +44,5 @@ protected:
     std::string m_directoryName;
     std::vector<Image> m_images;
     std::string m_flashCommand;
+    std::string m_finalImage;
 };

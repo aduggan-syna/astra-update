@@ -7,29 +7,20 @@
 #include "flash_image.hpp"
 #include "astra_device.hpp"
 
-std::queue<std::shared_ptr<AstraDevice>> devices;
-std::condition_variable devicesCV;
-std::mutex devicesMutex;
+std::queue<AstraUpdateResponse> updateResponses;
+std::condition_variable updateResponsesCV;
+std::mutex updateResponsesMutex;
 
-void DeviceStatusCallback(AstraDeviceState state, double progress, std::string message) {
-    std::cout << "Device status: " << state << " Progress: " << progress << " Message: " << message << std::endl;
+void AstraUpdateResponseCallback(AstraUpdateResponse response)
+{
+    std::lock_guard<std::mutex> lock(updateResponsesMutex);
+    updateResponses.push(response);
+    updateResponsesCV.notify_one();
 }
 
-void DeviceAddedCallback(std::shared_ptr<AstraDevice> device) {
-    std::cout << "Device added" << std::endl;
-
-    std::lock_guard<std::mutex> lock(devicesMutex);
-    devices.push(device);
-    devicesCV.notify_one();
-}
-
-int main() {
-    AstraUpdate update;
-    std::shared_ptr<FlashImage> flashImage;
-
-    update.InitializeLogging(ASTRA_LOG_LEVEL_DEBUG);
-
-    flashImage = FlashImage::FlashImageFactory("/Users/aduggan/syna/sl1640_gpiod");
+int main()
+{
+    std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory("/Users/aduggan/syna/sl1640_gpiod");
 
     int ret = flashImage->Load();
     if (ret < 0) {
@@ -37,37 +28,35 @@ int main() {
         return 1;
     }
 
-    ret = update.StartDeviceSearch(flashImage->GetBootFirmwareId(), DeviceAddedCallback);
+    AstraUpdate update(flashImage, "/Users/aduggan/syna/astra-usbboot-firmware",
+        AstraUpdateResponseCallback, false, ASTRA_LOG_LEVEL_DEBUG, "/Users/aduggan/syna/astra_update.log");
+
+    ret = update.StartDeviceSearch(flashImage->GetBootFirmwareId());
     if (ret < 0) {
         std::cerr << "Error initializing Astra Update" << std::endl;
         return 1;
     }
 
     while (true) {
-        std::unique_lock<std::mutex> lock(devicesMutex);
-        devicesCV.wait(lock, []{ return !devices.empty(); });
+        std::unique_lock<std::mutex> lock(updateResponsesMutex);
+        updateResponsesCV.wait(lock, []{ return !updateResponses.empty(); });
 
-        auto device = devices.front();
-        devices.pop();
+        auto status = updateResponses.front();
+        updateResponses.pop();
 
-        if (device) {
-            device->SetStatusCallback(DeviceStatusCallback);
+        if (status.IsUpdateResponse()) {
+            auto updateResponse = status.GetUpdateResponse();
+            std::cout << "Update status: " << updateResponse.m_updateStatus << " Message: " << updateResponse.m_updateMessage << std::endl;
 
-            ret = device->Boot(update.GetBootFirmware());
-            if (ret < 0) {
-                std::cerr << "Failed to boot device" << std::endl;
+            if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_SHUTDOWN) {
+                break;
             }
-
-            ret = device->Update(flashImage);
-            if (ret < 0) {
-                std::cerr << "Failed to update device" << std::endl;
-            }
-
-            ret = device->WaitForCompletion();
+        } else if (status.IsDeviceResponse()) {
+            auto deviceResponse = status.GetDeviceResponse();
+            std::cout << "Device status: " << deviceResponse.m_status << " Progress: " << deviceResponse.m_progress << " Image: "
+                << deviceResponse.m_imageName << " Message: " << deviceResponse.m_message << std::endl;
         }
     }
-
-    update.StopDeviceSearch();
 
     return 0;
 }

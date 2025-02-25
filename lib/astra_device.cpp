@@ -12,6 +12,7 @@
 #endif
 
 #include "astra_device.hpp"
+#include "astra_update.hpp"
 #include "astra_boot_firmware.hpp"
 #include "flash_image.hpp"
 #include "astra_console.hpp"
@@ -44,7 +45,7 @@ public:
         m_usbDevice->Close();
     }
 
-    void SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback)
+    void SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback)
     {
         ASTRA_LOG;
 
@@ -80,12 +81,12 @@ public:
         m_sizeRequestImage = std::make_unique<Image>(m_tempDir + "/" + m_sizeRequestImageFilename);
         m_uEnvImage = std::make_unique<Image>(m_tempDir + "/" + m_uEnvFilename);
 
-        m_state = ASTRA_DEVICE_STATE_OPENED;
+        m_status = ASTRA_DEVICE_STATUS_OPENED;
 
         std::vector<Image> firmwareImages = firmware->GetImages();
         m_images->insert(m_images->end(), firmwareImages.begin(), firmwareImages.end());
 
-        m_state = ASTRA_DEVICE_STATE_BOOT_START;
+        m_status = ASTRA_DEVICE_STATUS_BOOT_START;
         m_imageRequestThread= std::thread(std::bind(&AstraDeviceImpl::ImageRequestThread, this));
 
         return 0;
@@ -158,10 +159,19 @@ public:
         return 0;
     }
 
+    void Shutdown() {
+        if (!m_shutdown.load()) {
+            m_shutdown.store(true);
+            m_deviceEventCV.notify_all();
+
+            m_imageRequestCV.notify_all();
+        }
+    }
+
 private:
     std::unique_ptr<USBDevice> m_usbDevice;
-    AstraDeviceState m_state;
-    std::function<void(AstraDeviceState, int progress, std::string message)> m_statusCallback;
+    AstraDeviceStatus m_status;
+    std::function<void(AstraUpdateResponse)> m_statusCallback;
     std::atomic<bool> m_shutdown{false};
     bool m_uEnvSupport = false;
 
@@ -218,8 +228,8 @@ private:
 
         auto it = message.find(m_imageRequestString);
         if (it != std::string::npos) {
-            if (m_state == ASTRA_DEVICE_STATE_BOOT_COMPLETE) {
-                m_state = ASTRA_DEVICE_STATE_UPDATE_START;
+            if (m_status == ASTRA_DEVICE_STATUS_BOOT_COMPLETE) {
+                m_status = ASTRA_DEVICE_STATUS_UPDATE_START;
             }
 
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
@@ -294,7 +304,8 @@ private:
             return ret;
         }
 
-        m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_START, 0, image->GetName());
+        m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_START, 0, image->GetName(),
+            ""}});
 
         uint32_t imageSizeLE = htole32(image->GetSize());
         std::memcpy(m_imageBuffer, &imageSizeLE, sizeof(imageSizeLE));
@@ -306,13 +317,15 @@ private:
         ret = m_usbDevice->Write(m_imageBuffer, imageHeaderSize, &transferred);
         if (ret < 0) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write image" << endLog;
-            m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
+            m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(),
+                "Failed to write image"}});
             return ret;
         }
 
         totalTransferred += transferred;
 
-        m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, ((double)totalTransferred / totalTransferSize) * 100, image->GetName());
+        m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS,
+            ((double)totalTransferred / totalTransferSize) * 100, image->GetName(), ""}});
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Total transfer size: " << totalTransferSize << endLog;
         log(ASTRA_LOG_LEVEL_DEBUG) << "Total transferred: " << totalTransferred << endLog;
@@ -320,25 +333,27 @@ private:
             int dataBlockSize = image->GetDataBlock(m_imageBuffer, m_imageBufferSize);
             if (dataBlockSize < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get data block" << endLog;
-                m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
+                m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0,
+                    image->GetName(), "Failed to get data block"}});
                 return -1;
             }
 
             ret = m_usbDevice->Write(m_imageBuffer, dataBlockSize, &transferred);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write image" << endLog;
-                m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
+                m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(), "Failed to write image"}});
                 return ret;
             }
 
             totalTransferred += transferred;
 
-            m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_PROGRESS, ((double)totalTransferred / totalTransferSize) * 100, image->GetName());
+            m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS,
+                ((double)totalTransferred / totalTransferSize) * 100, image->GetName(), ""}});
         }
 
         if (totalTransferred != totalTransferSize) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to transfer entire image" << endLog;
-            m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_FAIL, 0, image->GetName());
+            m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(), "Failed to transfer entire image"}});
             return -1;
         }
 
@@ -347,7 +362,7 @@ private:
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to update image size request file" << endLog;
         }
 
-        m_statusCallback(ASTRA_DEVICE_STATE_IMAGE_SEND_COMPLETE, 100, image->GetName());
+        m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE, 100, image->GetName(), ""}});
 
         return 0;
     }
@@ -406,37 +421,25 @@ private:
             ret = SendImage(image);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send image" << endLog;
-                if (m_state == ASTRA_DEVICE_STATE_BOOT_START) {
-                    m_state = ASTRA_DEVICE_STATE_BOOT_FAIL;
-                } else if (m_state == ASTRA_DEVICE_STATE_UPDATE_START) {
-                    m_state = ASTRA_DEVICE_STATE_UPDATE_FAIL;
+                if (m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                    m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
+                } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                    m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
                 }
-                m_statusCallback(m_state, 0, "Failed to send image");
+                m_statusCallback({DeviceResponse{m_status, 0, image->GetName(), "Failed to send image"}});
                 return ret;
             } else {
                 if (image->GetName() == m_finalBootImage) {
-                    m_state = ASTRA_DEVICE_STATE_BOOT_COMPLETE;
-                    m_statusCallback(ASTRA_DEVICE_STATE_BOOT_COMPLETE, 100, image->GetName());
+                    m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
                 } else if (image->GetName() == m_finalUpdateImage) {
-                    m_state = ASTRA_DEVICE_STATE_UPDATE_COMPLETE;
-                    m_statusCallback(ASTRA_DEVICE_STATE_UPDATE_COMPLETE, 100, image->GetName());
+                    m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
                 }
-                m_statusCallback(m_state, 100, "Success");
+                m_statusCallback({DeviceResponse{m_status, 100, "", "Success"}});
             }
         }
 
         return 0;
     }
-
-    void Shutdown() {
-        if (!m_shutdown.load()) {
-            m_shutdown.store(true);
-            m_deviceEventCV.notify_all();
-
-            m_imageRequestCV.notify_all();
-        }
-    }
-
 };
 
 AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device, const std::string &tempDir) :
@@ -444,7 +447,7 @@ AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device, const std::string &t
 
 AstraDevice::~AstraDevice() = default;
 
-void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceState, double progress, std::string message)> statusCallback) {
+void AstraDevice::SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback) {
     pImpl->SetStatusCallback(statusCallback);
 }
 
@@ -466,4 +469,8 @@ int AstraDevice::SendToConsole(const std::string &data) {
 
 int AstraDevice::ReceiveFromConsole(std::string &data) {
     return pImpl->ReceiveFromConsole(data);
+}
+
+void AstraDevice::Shutdown() {
+    pImpl->Shutdown();
 }
