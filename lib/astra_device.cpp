@@ -68,6 +68,9 @@ public:
             return ret;
         }
 
+        m_deviceName = "device:" + m_usbDevice->GetUSBPath();
+        log(ASTRA_LOG_LEVEL_INFO) << "Device name: " << m_deviceName << endLog;
+
         std::ofstream imageFile(m_tempDir + "/" + m_usbPathImageFilename);
         if (!imageFile) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open 06_IMAGE file" << endLog;
@@ -174,6 +177,7 @@ private:
     std::function<void(AstraUpdateResponse)> m_statusCallback;
     std::atomic<bool> m_shutdown{false};
     bool m_uEnvSupport = false;
+    std::string m_deviceName;
 
     std::shared_ptr<std::vector<Image>> m_images = std::make_shared<std::vector<Image>>();
 
@@ -204,6 +208,13 @@ private:
     std::unique_ptr<Image> m_uEnvImage;
 
     int m_imageCount = 0;
+
+    void SendStatus(AstraDeviceStatus status, double progress, const std::string &imageName, const std::string &message = "")
+    {
+        ASTRA_LOG;
+
+        m_statusCallback({DeviceResponse{m_deviceName, status, progress, imageName, message}});
+    }
 
     void ImageRequestThread()
     {
@@ -306,8 +317,7 @@ private:
             return ret;
         }
 
-        m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_START, 0, image->GetName(),
-            ""}});
+        SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_START, 0, image->GetName());
 
         uint32_t imageSizeLE = htole32(image->GetSize());
         std::memcpy(m_imageBuffer, &imageSizeLE, sizeof(imageSizeLE));
@@ -319,15 +329,15 @@ private:
         ret = m_usbDevice->Write(m_imageBuffer, imageHeaderSize, &transferred);
         if (ret < 0) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write image" << endLog;
-            m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(),
-                "Failed to write image"}});
+            SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(),
+                "Failed to write image");
             return ret;
         }
 
         totalTransferred += transferred;
 
-        m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS,
-            ((double)totalTransferred / totalTransferSize) * 100, image->GetName(), ""}});
+        SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS,
+            ((double)totalTransferred / totalTransferSize) * 100, image->GetName());
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Total transfer size: " << totalTransferSize << endLog;
         log(ASTRA_LOG_LEVEL_DEBUG) << "Total transferred: " << totalTransferred << endLog;
@@ -335,27 +345,27 @@ private:
             int dataBlockSize = image->GetDataBlock(m_imageBuffer, m_imageBufferSize);
             if (dataBlockSize < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get data block" << endLog;
-                m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0,
-                    image->GetName(), "Failed to get data block"}});
+                SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0,
+                    image->GetName(), "Failed to get data block");
                 return -1;
             }
 
             ret = m_usbDevice->Write(m_imageBuffer, dataBlockSize, &transferred);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write image" << endLog;
-                m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(), "Failed to write image"}});
+                SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(), "Failed to write image");
                 return ret;
             }
 
             totalTransferred += transferred;
 
-            m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS,
-                ((double)totalTransferred / totalTransferSize) * 100, image->GetName(), ""}});
+            SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS,
+                ((double)totalTransferred / totalTransferSize) * 100, image->GetName());
         }
 
         if (totalTransferred != totalTransferSize) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to transfer entire image" << endLog;
-            m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(), "Failed to transfer entire image"}});
+            SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL, 0, image->GetName(), "Failed to transfer entire image");
             return -1;
         }
 
@@ -364,7 +374,7 @@ private:
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to update image size request file" << endLog;
         }
 
-        m_statusCallback({DeviceResponse{ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE, 100, image->GetName(), ""}});
+        SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE, 100, image->GetName());
 
         return 0;
     }
@@ -434,7 +444,7 @@ private:
                 } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START || m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
                     m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
                 }
-                m_statusCallback({DeviceResponse{m_status, 0, image->GetName(), "Failed to send image"}});
+                SendStatus(m_status, 0, image->GetName(), "Failed to send image");
                 return ret;
             } else {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image " << m_finalBootImage << " final update image : " << m_finalUpdateImage << endLog;
@@ -445,7 +455,7 @@ private:
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
                     m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
                 }
-                m_statusCallback({DeviceResponse{m_status, 100, "", "Success"}});
+                SendStatus(m_status, 100, "", "Success");
                 m_imageCount++;
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Image count: " << m_imageCount << endLog;
             }

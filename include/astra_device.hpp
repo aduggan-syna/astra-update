@@ -54,6 +54,7 @@ private:
 
 struct DeviceResponse
 {
+    std::string m_deviceName;
     AstraDeviceStatus m_status;
     double m_progress;
     std::string m_imageName;
