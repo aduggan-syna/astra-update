@@ -6,10 +6,28 @@
 #include <cxxopts.hpp>
 #include <indicators/progress_bar.hpp>
 #include <indicators/dynamic_progress.hpp>
+#include <unordered_map>
 
 #include "astra_update.hpp"
 #include "flash_image.hpp"
 #include "astra_device.hpp"
+
+// Define a struct to hold the two strings
+struct DeviceImageKey {
+    std::string deviceName;
+    std::string imageName;
+
+    bool operator==(const DeviceImageKey& other) const {
+        return deviceName == other.deviceName && imageName == other.imageName;
+    }
+};
+
+// Implement a custom hash function for the struct
+struct DeviceImageKeyHash {
+    std::size_t operator()(const DeviceImageKey& key) const {
+        return std::hash<std::string>()(key.deviceName) ^ std::hash<std::string>()(key.imageName);
+    }
+};
 
 std::queue<AstraUpdateResponse> updateResponses;
 std::condition_variable updateResponsesCV;
@@ -24,13 +42,12 @@ void AstraUpdateResponseCallback(AstraUpdateResponse response)
 
 void UpdateProgressBars(DeviceResponse &deviceResponse,
     indicators::DynamicProgress<indicators::ProgressBar> &dynamicProgress,
-    std::unordered_map<std::string, size_t> &progressBars)
+    std::unordered_map<DeviceImageKey, size_t, DeviceImageKeyHash> &progressBars)
 {
-    std::string imageName = deviceResponse.m_imageName;
-    std::string deviceName = deviceResponse.m_deviceName;
+    DeviceImageKey key{deviceResponse.m_deviceName, deviceResponse.m_imageName};
 
     // Ensure a progress bar exists for this image
-    if (progressBars.find(imageName) == progressBars.end()) {
+    if (progressBars.find(key) == progressBars.end()) {
         auto progress_bar = std::make_unique<indicators::ProgressBar>(
             indicators::option::BarWidth{50},
             indicators::option::Start{"["},
@@ -38,18 +55,18 @@ void UpdateProgressBars(DeviceResponse &deviceResponse,
             indicators::option::Lead{">"},
             indicators::option::Remainder{" "},
             indicators::option::End{"]"},
-            indicators::option::PostfixText{imageName},
-            indicators::option::PrefixText{deviceName + ": "},
+            indicators::option::PostfixText{deviceResponse.m_imageName},
+            indicators::option::PrefixText{deviceResponse.m_deviceName + ": "},
             indicators::option::ForegroundColor{indicators::Color::green},
             indicators::option::ShowElapsedTime{true},
             indicators::option::ShowRemainingTime{true},
             indicators::option::MaxProgress{100}
         );
         size_t bardId = dynamicProgress.push_back(std::move(progress_bar));
-        progressBars[imageName] = bardId;
+        progressBars[key] = bardId;
     }
 
-    auto& progressBar = dynamicProgress[progressBars[imageName]];
+    auto& progressBar = dynamicProgress[progressBars[key]];
     progressBar.set_progress(deviceResponse.m_progress);
 
     if (deviceResponse.m_progress == 100) {
@@ -107,7 +124,7 @@ int main(int argc, char* argv[])
 
     // DynamicProgress to manage multiple progress bars
     indicators::DynamicProgress<indicators::ProgressBar> dynamicProgress;
-    std::unordered_map<std::string, size_t> progressBars;
+    std::unordered_map<DeviceImageKey, size_t, DeviceImageKeyHash> progressBars;
 
     dynamicProgress.set_option(indicators::option::HideBarWhenComplete{false});
 
