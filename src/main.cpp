@@ -2,7 +2,10 @@
 #include <memory>
 #include <queue>
 #include <condition_variable>
+#include <functional>
 #include <cxxopts.hpp>
+#include <indicators/progress_bar.hpp>
+#include <indicators/dynamic_progress.hpp>
 
 #include "astra_update.hpp"
 #include "flash_image.hpp"
@@ -67,6 +70,10 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    // DynamicProgress to manage multiple progress bars
+    indicators::DynamicProgress<indicators::ProgressBar> dynamicProgress;
+    std::unordered_map<std::string, size_t> progressBars;
+
     while (true) {
         std::unique_lock<std::mutex> lock(updateResponsesMutex);
         updateResponsesCV.wait(lock, []{ return !updateResponses.empty(); });
@@ -76,15 +83,41 @@ int main(int argc, char* argv[])
 
         if (status.IsUpdateResponse()) {
             auto updateResponse = status.GetUpdateResponse();
-            std::cout << "Update status: " << updateResponse.m_updateStatus << " Message: " << updateResponse.m_updateMessage << std::endl;
+            std::cout << "Update status: " << updateResponse.m_updateStatus
+                      << " Message: " << updateResponse.m_updateMessage << std::endl;
 
             if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_SHUTDOWN) {
                 break;
             }
         } else if (status.IsDeviceResponse()) {
             auto deviceResponse = status.GetDeviceResponse();
-            std::cout << "Device status: " << AstraDevice::AstraDeviceStatusToString(deviceResponse.m_status) << " Progress: " << deviceResponse.m_progress << " Image: "
-                << deviceResponse.m_imageName << " Message: " << deviceResponse.m_message << std::endl;
+            std::string imageName = deviceResponse.m_imageName;
+
+            // Ensure a progress bar exists for this image
+            if (progressBars.find(imageName) == progressBars.end()) {
+                auto progress_bar = std::make_unique<indicators::ProgressBar>(
+                    indicators::option::BarWidth{50},
+                    indicators::option::Start{"["},
+                    indicators::option::Fill{"="},
+                    indicators::option::Lead{">"},
+                    indicators::option::Remainder{" "},
+                    indicators::option::End{"]"},
+                    indicators::option::PostfixText{imageName},
+                    indicators::option::ForegroundColor{indicators::Color::green},
+                    indicators::option::ShowElapsedTime{true},
+                    indicators::option::ShowRemainingTime{true},
+                    indicators::option::MaxProgress{100}
+                );
+                size_t bardId = dynamicProgress.push_back(std::move(progress_bar));
+                progressBars[imageName] = bardId;
+            }
+
+            auto& progressBar = dynamicProgress[progressBars[imageName]];
+            progressBar.set_progress(deviceResponse.m_progress);
+
+            if (deviceResponse.m_progress == 100) {
+                progressBar.mark_as_completed();
+            }
         }
     }
 

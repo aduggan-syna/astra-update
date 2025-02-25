@@ -7,11 +7,20 @@ ExternalProject_Add(cxxopts
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/cxxopts
 )
 
+ExternalProject_Add(indicators
+    GIT_REPOSITORY https://github.com/p-ranav/indicators.git
+    GIT_TAG master
+    PREFIX ${CMAKE_BINARY_DIR}/indicators
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/indicators
+)
+
 add_executable(astra-update main.cpp)
 add_dependencies(astra-update astraupdate)
 add_dependencies(astra-update cxxopts)
+add_dependencies(astra-update indicators)
 
 include_directories(../include)
 include_directories(${CMAKE_BINARY_DIR}/cxxopts/include)
+include_directories(${CMAKE_BINARY_DIR}/indicators/include)
 
 target_link_libraries(astra-update astraupdate)
