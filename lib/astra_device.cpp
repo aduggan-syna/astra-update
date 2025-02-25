@@ -439,8 +439,10 @@ private:
             } else {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image " << m_finalBootImage << " final update image : " << m_finalUpdateImage << endLog;
                 if (image->GetName().find(m_finalBootImage) != std::string::npos) {
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
                     m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
                 } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) {
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
                     m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
                 }
                 m_statusCallback({DeviceResponse{m_status, 100, "", "Success"}});
