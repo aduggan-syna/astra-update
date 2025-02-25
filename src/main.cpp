@@ -2,6 +2,7 @@
 #include <memory>
 #include <queue>
 #include <condition_variable>
+#include <cxxopts.hpp>
 
 #include "astra_update.hpp"
 #include "flash_image.hpp"
@@ -18,9 +19,39 @@ void AstraUpdateResponseCallback(AstraUpdateResponse response)
     updateResponsesCV.notify_one();
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-    std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory("/Users/aduggan/syna/sl1640_gpiod");
+    cxxopts::Options options("AstraUpdate", "Astra Update Utility");
+
+    options.add_options()
+        ("b,boot-firmware", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("/Users/aduggan/syna/astra-usbboot-firmware"))
+        ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
+        ("d,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
+        ("h,help", "Print usage")
+        ("flash", "Flash image path", cxxopts::value<std::string>());
+
+    options.parse_positional({"flash"});
+
+    auto result = options.parse(argc, argv);
+
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        return 0;
+    }
+
+    if (!result.count("flash")) {
+        std::cerr << "Error: Flash image path is required." << std::endl;
+        std::cerr << options.help() << std::endl;
+        return 1;
+    }
+
+    std::string flashImagePath = result["flash"].as<std::string>();
+    std::string bootFirmwarePath = result["boot-firmware"].as<std::string>();
+    std::string logFilePath = result["log"].as<std::string>();
+    bool debug = result["debug"].as<bool>();
+    AstraLogLevel logLevel = debug ?  ASTRA_LOG_LEVEL_DEBUG : ASTRA_LOG_LEVEL_INFO;
+
+    std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory(flashImagePath);
 
     int ret = flashImage->Load();
     if (ret < 0) {
@@ -28,8 +59,7 @@ int main()
         return 1;
     }
 
-    AstraUpdate update(flashImage, "/Users/aduggan/syna/astra-usbboot-firmware",
-        AstraUpdateResponseCallback, false, ASTRA_LOG_LEVEL_DEBUG, "/Users/aduggan/syna/astra_update.log");
+    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, false, logLevel, logFilePath);
 
     ret = update.StartDeviceSearch(flashImage->GetBootFirmwareId());
     if (ret < 0) {
