@@ -36,7 +36,7 @@ public:
 
     const std::vector<Image>& GetImages() const { return m_images; }
 
-    const std::string& GetFinalBootImage();
+    const std::string GetFinalBootImage();
 
 private:
     std::string m_path;

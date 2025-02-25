@@ -11,9 +11,11 @@ enum AstraDeviceStatus {
     ASTRA_DEVICE_STATUS_OPENED,
     ASTRA_DEVICE_STATUS_CLOSED,
     ASTRA_DEVICE_STATUS_BOOT_START,
+    ASTRA_DEVICE_STATUS_BOOT_PROGRESS,
     ASTRA_DEVICE_STATUS_BOOT_COMPLETE,
     ASTRA_DEVICE_STATUS_BOOT_FAIL,
     ASTRA_DEVICE_STATUS_UPDATE_START,
+    ASTRA_DEVICE_STATUS_UPDATE_PROGRESS,
     ASTRA_DEVICE_STATUS_UPDATE_COMPLETE,
     ASTRA_DEVICE_STATUS_UPDATE_FAIL,
     ASTRA_DEVICE_STATUS_IMAGE_SEND_START,
@@ -42,6 +44,8 @@ public:
     int ReceiveFromConsole(std::string &data);
 
     void Shutdown();
+
+    static const std::string AstraDeviceStatusToString(AstraDeviceStatus status);
 
 private:
     class AstraDeviceImpl;

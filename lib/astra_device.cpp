@@ -203,6 +203,8 @@ private:
     std::unique_ptr<Image> m_sizeRequestImage;
     std::unique_ptr<Image> m_uEnvImage;
 
+    int m_imageCount = 0;
+
     void ImageRequestThread()
     {
         ASTRA_LOG;
@@ -418,23 +420,32 @@ private:
                 image = &(*it);
             }
 
+            if (m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                m_status = ASTRA_DEVICE_STATUS_BOOT_PROGRESS;
+            } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                m_status = ASTRA_DEVICE_STATUS_UPDATE_PROGRESS;
+            }
+
             ret = SendImage(image);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send image" << endLog;
-                if (m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                if (m_status == ASTRA_DEVICE_STATUS_BOOT_START || m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
                     m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
-                } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START || m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
                     m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
                 }
                 m_statusCallback({DeviceResponse{m_status, 0, image->GetName(), "Failed to send image"}});
                 return ret;
             } else {
-                if (image->GetName() == m_finalBootImage) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image " << m_finalBootImage << " final update image : " << m_finalUpdateImage << endLog;
+                if (image->GetName().find(m_finalBootImage) != std::string::npos) {
                     m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
-                } else if (image->GetName() == m_finalUpdateImage) {
+                } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) {
                     m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
                 }
                 m_statusCallback({DeviceResponse{m_status, 100, "", "Success"}});
+                m_imageCount++;
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Image count: " << m_imageCount << endLog;
             }
         }
 
@@ -473,4 +484,27 @@ int AstraDevice::ReceiveFromConsole(std::string &data) {
 
 void AstraDevice::Shutdown() {
     pImpl->Shutdown();
+}
+
+const std::string AstraDevice::AstraDeviceStatusToString(AstraDeviceStatus status)
+{
+    static const std::string statusStrings[] = {
+        "ASTRA_DEVICE_STATUS_ADDED",
+        "ASTRA_DEVICE_STATUS_OPENED",
+        "ASTRA_DEVICE_STATUS_CLOSED",
+        "ASTRA_DEVICE_STATUS_BOOT_START",
+        "ASTRA_DEVICE_STATUS_BOOT_PROGRESS",
+        "ASTRA_DEVICE_STATUS_BOOT_COMPLETE",
+        "ASTRA_DEVICE_STATUS_BOOT_FAIL",
+        "ASTRA_DEVICE_STATUS_UPDATE_START",
+        "ASTRA_DEVICE_STATUS_UPDATE_PROGRESS",
+        "ASTRA_DEVICE_STATUS_UPDATE_COMPLETE",
+        "ASTRA_DEVICE_STATUS_UPDATE_FAIL",
+        "ASTRA_DEVICE_STATUS_IMAGE_SEND_START",
+        "ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS",
+        "ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE",
+        "ASTRA_DEVICE_STATUS_IMAGE_SEND_FAIL",
+    };
+
+    return statusStrings[status];
 }

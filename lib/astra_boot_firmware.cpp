@@ -73,7 +73,7 @@ AstraBootFirmware::~AstraBootFirmware()
     ASTRA_LOG;
 }
 
-const std::string& AstraBootFirmware::GetFinalBootImage()
+const std::string AstraBootFirmware::GetFinalBootImage()
 {
     ASTRA_LOG;
 

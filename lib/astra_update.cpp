@@ -22,11 +22,9 @@ public:
         : m_flashImage(flashImage), m_bootFirmwarePath{bootFirmwarePath},
         m_responseCallback{responseCallback} ,m_updateContinuously{updateContinuously}
     {
-        ASTRA_LOG;
-
         m_tempDir = MakeTempDirectory();
         if (m_tempDir.empty()) {
-            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to create temporary directory" << endLog;
+            m_tempDir = "./";
         }
 
         std::string modifiedLogPath = logPath;
@@ -34,6 +32,10 @@ public:
             modifiedLogPath = m_tempDir + "/astra_update.log";
         }
         AstraLogStore::getInstance().Open(modifiedLogPath, minLogLevel);
+
+        ASTRA_LOG;
+
+        log(ASTRA_LOG_LEVEL_INFO) << "final image: " << m_flashImage->GetFinalImage() << endLog;
     }
 
     ~AstraUpdateImpl() {
@@ -43,7 +45,7 @@ public:
     {
         ASTRA_LOG;
 
-        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection("/Users/aduggan/syna/astra-usbboot-firmware");
+        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection(m_bootFirmwarePath);
         bootFirmwareCollection.Load();
 
         m_firmware = std::make_shared<AstraBootFirmware>(bootFirmwareCollection.GetFirmware(bootFirmwareId));

@@ -53,7 +53,7 @@ int main()
             }
         } else if (status.IsDeviceResponse()) {
             auto deviceResponse = status.GetDeviceResponse();
-            std::cout << "Device status: " << deviceResponse.m_status << " Progress: " << deviceResponse.m_progress << " Image: "
+            std::cout << "Device status: " << AstraDevice::AstraDeviceStatusToString(deviceResponse.m_status) << " Progress: " << deviceResponse.m_progress << " Image: "
                 << deviceResponse.m_imageName << " Message: " << deviceResponse.m_message << std::endl;
         }
     }
