@@ -69,8 +69,6 @@ public:
     {
         ASTRA_LOG;
 
-        m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
-
         std::lock_guard<std::mutex> lock(m_devicesMutex);
         for (auto& device : m_devices) {
             device->Shutdown();
@@ -117,6 +115,10 @@ private:
             }
 
             ret = astraDevice->WaitForCompletion();
+
+            if (!m_updateContinuously) {
+                m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
+            }
         }
     }
 

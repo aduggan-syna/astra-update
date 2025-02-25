@@ -88,5 +88,7 @@ int main(int argc, char* argv[])
         }
     }
 
+    update.Shutdown();
+
     return 0;
 }
