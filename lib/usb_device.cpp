@@ -341,6 +341,9 @@ void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)
     } else if (transfer->status == LIBUSB_TRANSFER_NO_DEVICE) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_NO_DEVICE, nullptr, 0);
+    } else if (transfer->status == LIBUSB_TRANSFER_CANCELLED) {
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Input interrupt transfer cancelled" << endLog;
+        device->m_usbEventCallback(USB_DEVICE_EVENT_TRANSFER_CANCELED, nullptr, 0);
     } else {
         log(ASTRA_LOG_LEVEL_ERROR) << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << endLog;
     }

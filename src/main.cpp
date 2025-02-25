@@ -22,6 +22,41 @@ void AstraUpdateResponseCallback(AstraUpdateResponse response)
     updateResponsesCV.notify_one();
 }
 
+void UpdateProgressBars(DeviceResponse &deviceResponse,
+    indicators::DynamicProgress<indicators::ProgressBar> &dynamicProgress,
+    std::unordered_map<std::string, size_t> &progressBars)
+{
+    std::string imageName = deviceResponse.m_imageName;
+    std::string deviceName = deviceResponse.m_deviceName;
+
+    // Ensure a progress bar exists for this image
+    if (progressBars.find(imageName) == progressBars.end()) {
+        auto progress_bar = std::make_unique<indicators::ProgressBar>(
+            indicators::option::BarWidth{50},
+            indicators::option::Start{"["},
+            indicators::option::Fill{"="},
+            indicators::option::Lead{">"},
+            indicators::option::Remainder{" "},
+            indicators::option::End{"]"},
+            indicators::option::PostfixText{imageName},
+            indicators::option::PrefixText{deviceName + ": "},
+            indicators::option::ForegroundColor{indicators::Color::green},
+            indicators::option::ShowElapsedTime{true},
+            indicators::option::ShowRemainingTime{true},
+            indicators::option::MaxProgress{100}
+        );
+        size_t bardId = dynamicProgress.push_back(std::move(progress_bar));
+        progressBars[imageName] = bardId;
+    }
+
+    auto& progressBar = dynamicProgress[progressBars[imageName]];
+    progressBar.set_progress(deviceResponse.m_progress);
+
+    if (deviceResponse.m_progress == 100) {
+        progressBar.mark_as_completed();
+    }
+}
+
 int main(int argc, char* argv[])
 {
     cxxopts::Options options("AstraUpdate", "Astra Update Utility");
@@ -74,6 +109,8 @@ int main(int argc, char* argv[])
     indicators::DynamicProgress<indicators::ProgressBar> dynamicProgress;
     std::unordered_map<std::string, size_t> progressBars;
 
+    dynamicProgress.set_option(indicators::option::HideBarWhenComplete{false});
+
     while (true) {
         std::unique_lock<std::mutex> lock(updateResponsesMutex);
         updateResponsesCV.wait(lock, []{ return !updateResponses.empty(); });
@@ -91,32 +128,22 @@ int main(int argc, char* argv[])
             }
         } else if (status.IsDeviceResponse()) {
             auto deviceResponse = status.GetDeviceResponse();
-            std::string imageName = deviceResponse.m_imageName;
 
-            // Ensure a progress bar exists for this image
-            if (progressBars.find(imageName) == progressBars.end()) {
-                auto progress_bar = std::make_unique<indicators::ProgressBar>(
-                    indicators::option::BarWidth{50},
-                    indicators::option::Start{"["},
-                    indicators::option::Fill{"="},
-                    indicators::option::Lead{">"},
-                    indicators::option::Remainder{" "},
-                    indicators::option::End{"]"},
-                    indicators::option::PostfixText{imageName},
-                    indicators::option::ForegroundColor{indicators::Color::green},
-                    indicators::option::ShowElapsedTime{true},
-                    indicators::option::ShowRemainingTime{true},
-                    indicators::option::MaxProgress{100}
-                );
-                size_t bardId = dynamicProgress.push_back(std::move(progress_bar));
-                progressBars[imageName] = bardId;
-            }
-
-            auto& progressBar = dynamicProgress[progressBars[imageName]];
-            progressBar.set_progress(deviceResponse.m_progress);
-
-            if (deviceResponse.m_progress == 100) {
-                progressBar.mark_as_completed();
+            if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_ADDED) {
+                std::cout << "Detected Device: " << deviceResponse.m_deviceName << std::endl;
+            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                std::cout << "Booting Device: " << deviceResponse.m_deviceName << std::endl;
+            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_COMPLETE) {
+                std::cout << "Booting " << deviceResponse.m_deviceName << " is complete" << std::endl;
+            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                std::cout << "Updating Device: " << deviceResponse.m_deviceName << std::endl;
+            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
+                std::cout << "Device: " << deviceResponse.m_deviceName << " Update Complete" << std::endl;
+            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_START ||
+                deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS ||
+                deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE)
+            {
+                UpdateProgressBars(deviceResponse, dynamicProgress, progressBars);
             }
         }
     }

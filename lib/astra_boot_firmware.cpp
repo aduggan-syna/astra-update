@@ -76,10 +76,17 @@ AstraBootFirmware::~AstraBootFirmware()
 const std::string AstraBootFirmware::GetFinalBootImage()
 {
     ASTRA_LOG;
+    std::string finalBootImage;
 
     if (m_secureBootVersion == ASTRA_SECURE_BOOT_V2) {
-        return "minildr.img";
-    } else {
-        return "gen3_uboot.bin.usb";
+        finalBootImage = "minildr.img";
+    } else if (m_secureBootVersion == ASTRA_SECURE_BOOT_V3) {
+        if (m_uEnvSupport) {
+            finalBootImage = "uEnv.txt";
+        } else {
+            finalBootImage = "gen3_uboot.bin.usb";
+        }
     }
+
+    return finalBootImage;
 }

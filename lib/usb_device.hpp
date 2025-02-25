@@ -15,6 +15,7 @@ public:
 
     enum USBEvent {
         USB_DEVICE_EVENT_NO_DEVICE,
+        USB_DEVICE_EVENT_TRANSFER_CANCELED,
         USB_DEVICE_EVENT_INTERRUPT,
     };
 

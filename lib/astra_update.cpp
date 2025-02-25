@@ -101,22 +101,32 @@ private:
     {
         ASTRA_LOG;
 
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Updating device" << endLog;
+
         if (astraDevice) {
             astraDevice->SetStatusCallback(m_responseCallback);
 
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Calling boot" << endLog;
             int ret = astraDevice->Boot(m_firmware);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to boot device" << endLog;
             }
 
+            log(ASTRA_LOG_LEVEL_DEBUG) << "calling from Update" << endLog;
             ret = astraDevice->Update(m_flashImage);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to update device" << endLog;
             }
 
+            log(ASTRA_LOG_LEVEL_DEBUG) << "calling from WaitForCompletion" << endLog;
             ret = astraDevice->WaitForCompletion();
+            if (ret < 0) {
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to wait for completion" << endLog;
+            }
 
+            log(ASTRA_LOG_LEVEL_DEBUG) << "returned from WaitForCompletion" << endLog;
             if (!m_updateContinuously) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down Astra Update" << endLog;
                 m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
             }
         }

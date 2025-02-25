@@ -53,6 +53,7 @@ void EmmcFlashImage::ParseEmmcPartList()
         std::istringstream iss(line);
         std::string name;
         if (std::getline(iss, name, ',')) {
+            name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
             lastEntryName = name;
         }
     }

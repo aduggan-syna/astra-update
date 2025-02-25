@@ -213,6 +213,7 @@ private:
     {
         ASTRA_LOG;
 
+        log(ASTRA_LOG_LEVEL_INFO) << "Device status: " << AstraDeviceStatusToString(status) << " Progress: " << progress << " Image: " << imageName << " Message: " << message << endLog;
         m_statusCallback({DeviceResponse{m_deviceName, status, progress, imageName, message}});
     }
 
@@ -272,8 +273,9 @@ private:
 
         if (event == USBDevice::USB_DEVICE_EVENT_INTERRUPT) {
             HandleInterrupt(buf, size);
-        } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE) {
+        } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE || event == USBDevice::USB_DEVICE_EVENT_TRANSFER_CANCELED) {
             // device disappeared
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Device disconnected: shutting down" << endLog;
             Shutdown();
         }
     }
@@ -446,8 +448,8 @@ private:
                 }
                 SendStatus(m_status, 0, image->GetName(), "Failed to send image");
                 return ret;
-            } else {
-                log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image " << m_finalBootImage << " final update image : " << m_finalUpdateImage << endLog;
+            } else if (image->GetName() != m_sizeRequestImageFilename) { // filter out size request image
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image '" << m_finalBootImage << "' final update image : '" << m_finalUpdateImage << "'" << endLog;
                 if (image->GetName().find(m_finalBootImage) != std::string::npos) {
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
                     m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
