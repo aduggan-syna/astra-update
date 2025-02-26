@@ -79,9 +79,10 @@ int main(int argc, char* argv[])
     cxxopts::Options options("AstraUpdate", "Astra Update Utility");
 
     options.add_options()
-        ("b,boot-firmware", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("/Users/aduggan/syna/astra-usbboot-firmware"))
+        ("b,boot-firmware", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("/home/aduggan/syna/astra-usbboot-firmware"))
         ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
         ("d,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
+        ("c,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage")
         ("flash", "Flash image path", cxxopts::value<std::string>());
 
@@ -104,6 +105,7 @@ int main(int argc, char* argv[])
     std::string bootFirmwarePath = result["boot-firmware"].as<std::string>();
     std::string logFilePath = result["log"].as<std::string>();
     bool debug = result["debug"].as<bool>();
+    bool continuous = result["continuous"].as<bool>();
     AstraLogLevel logLevel = debug ?  ASTRA_LOG_LEVEL_DEBUG : ASTRA_LOG_LEVEL_INFO;
 
     std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory(flashImagePath);
@@ -114,7 +116,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, false, logLevel, logFilePath);
+    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath);
 
     ret = update.StartDeviceSearch(flashImage->GetBootFirmwareId());
     if (ret < 0) {
