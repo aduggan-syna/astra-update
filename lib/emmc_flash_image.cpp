@@ -14,6 +14,10 @@ int EmmcFlashImage::Load()
 
     int ret;
 
+    if (!m_imagePath.empty() && m_imagePath.back() == '/') {
+        m_imagePath.erase(m_imagePath.size() - 1);
+    }
+
     if (std::filesystem::exists(m_imagePath) && std::filesystem::is_directory(m_imagePath)) {
         m_directoryName = std::filesystem::path(m_imagePath).filename().string();
         for (const auto& entry : std::filesystem::directory_iterator(m_imagePath)) {
