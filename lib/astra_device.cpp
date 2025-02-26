@@ -213,8 +213,10 @@ private:
     {
         ASTRA_LOG;
 
-        log(ASTRA_LOG_LEVEL_INFO) << "Device status: " << AstraDeviceStatusToString(status) << " Progress: " << progress << " Image: " << imageName << " Message: " << message << endLog;
-        m_statusCallback({DeviceResponse{m_deviceName, status, progress, imageName, message}});
+        if (imageName != m_sizeRequestImageFilename) { //filter out size request image
+            log(ASTRA_LOG_LEVEL_INFO) << "Device status: " << AstraDeviceStatusToString(status) << " Progress: " << progress << " Image: " << imageName << " Message: " << message << endLog;
+            m_statusCallback({DeviceResponse{m_deviceName, status, progress, imageName, message}});
+        }
     }
 
     void ImageRequestThread()
@@ -439,6 +441,7 @@ private:
             }
 
             ret = SendImage(image);
+            log(ASTRA_LOG_LEVEL_DEBUG) << "After send image: " << image->GetName() << endLog;
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send image" << endLog;
                 if (m_status == ASTRA_DEVICE_STATUS_BOOT_START || m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
@@ -448,7 +451,7 @@ private:
                 }
                 SendStatus(m_status, 0, image->GetName(), "Failed to send image");
                 return ret;
-            } else if (image->GetName() != m_sizeRequestImageFilename) { // filter out size request image
+            } else {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image '" << m_finalBootImage << "' final update image : '" << m_finalUpdateImage << "'" << endLog;
                 if (image->GetName().find(m_finalBootImage) != std::string::npos) {
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
