@@ -27,8 +27,6 @@ public:
         : m_usbDevice{std::move(device)}, m_tempDir{tempDir}
     {
         ASTRA_LOG;
-
-        m_console = std::make_unique<AstraConsole>(m_tempDir);
     }
 
     ~AstraDeviceImpl()
@@ -70,6 +68,8 @@ public:
 
         m_deviceName = "device:" + m_usbDevice->GetUSBPath();
         log(ASTRA_LOG_LEVEL_INFO) << "Device name: " << m_deviceName << endLog;
+
+        m_console = std::make_unique<AstraConsole>(m_deviceName, m_tempDir);
 
         std::ofstream imageFile(m_tempDir + "/" + m_usbPathImageFilename);
         if (!imageFile) {

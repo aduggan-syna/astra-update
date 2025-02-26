@@ -10,8 +10,10 @@
 class AstraConsole
 {
 public:
-    AstraConsole(std::string logPath) : m_consoleLog{std::ofstream(logPath + "/console.log")}
+    AstraConsole(std::string deviceName, std::string logPath)
     {
+        std::string logFile = logPath + "/console-" + deviceName + ".log";
+        m_consoleLog = std::ofstream(logFile);
     }
 
     ~AstraConsole();
