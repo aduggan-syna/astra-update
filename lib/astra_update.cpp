@@ -129,6 +129,8 @@ private:
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down Astra Update" << endLog;
                 m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
             }
+
+            // TODO: shutdown and remove astra device
         }
     }
 
