@@ -45,10 +45,20 @@ add_dependencies(astraupdate libusb)
 
 message(CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME})
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(YAML_CPP_LIB_NAME "yaml-cppd")
+    else()
+        set(YAML_CPP_LIB_NAME "yaml-cpp")
+    endif()
+else()
+    set(YAML_CPP_LIB_NAME "libyaml-cpp")
+endif()
+
 target_include_directories(astraupdate PRIVATE ${CMAKE_SOURCE_DIR}/lib)
 target_include_directories(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/yaml-cpp/include)
 target_include_directories(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/libusb/include)
 
 
 target_link_libraries(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/libusb/lib/libusb-1.0${CMAKE_STATIC_LIBRARY_SUFFIX} ${PLATFORM_LINK_LIBRARIES})
-target_link_libraries(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/yaml-cpp/lib/libyaml-cpp${CMAKE_STATIC_LIBRARY_SUFFIX})
+target_link_libraries(astraupdate PRIVATE ${CMAKE_BINARY_DIR}/yaml-cpp/lib/${YAML_CPP_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})

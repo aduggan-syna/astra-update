@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 
+#include <stdint.h>
+
 std::string MakeTempDirectory()
 {
     char tempPath[MAX_PATH];
@@ -32,4 +34,13 @@ void RemoveTempDirectory(const std::string &path)
     {
         throw std::runtime_error("Failed to remove temp directory");
     }
+}
+
+uint32_t HostToLE(uint32_t val)
+{
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return val;
+#else
+    return _byteswap_ulong(val);
+#endif
 }

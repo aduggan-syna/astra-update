@@ -12,7 +12,7 @@ int EmmcFlashImage::Load()
 {
     ASTRA_LOG;
 
-    int ret;
+    int ret = 0;
 
     if (!m_imagePath.empty() && m_imagePath.back() == '/') {
         m_imagePath.erase(m_imagePath.size() - 1);
@@ -34,7 +34,7 @@ int EmmcFlashImage::Load()
 
     ParseEmmcPartList();
 
-    return 0;
+    return ret;
 }
 
 void EmmcFlashImage::ParseEmmcPartList()

@@ -18,7 +18,7 @@ void BootFirmwareCollection::Load()
             if (std::filesystem::is_directory(entry.path())) {
                 log(ASTRA_LOG_LEVEL_DEBUG)<< "Found boot firmware directory: " << entry.path() << endLog;
                 if (std::filesystem::exists(entry.path() / "manifest.yaml")) {
-                    AstraBootFirmware firmware{entry.path()};
+                    AstraBootFirmware firmware{entry.path().string()};
                     
                     int ret = firmware.Load();
                     if (ret < 0) {

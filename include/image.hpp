@@ -27,7 +27,7 @@ public:
     std::string GetName() const { return m_imageName; }
     std::string GetPath() const { return m_imagePath; }
     int GetDataBlock(uint8_t *data, size_t size);
-    int GetSize() const { return m_imageSize; }
+    size_t GetSize() const { return m_imageSize; }
 
 private:
     std::string m_imagePath;
