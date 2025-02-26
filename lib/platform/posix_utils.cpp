@@ -3,6 +3,11 @@
 #include <filesystem>
 #include <unistd.h>
 
+#ifdef PLATFORM_MACOS
+#include <libkern/OSByteOrder.h>
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#endif
+
 #include "utils.hpp"
 
 std::string MakeTempDirectory()
@@ -18,4 +23,13 @@ std::string MakeTempDirectory()
 void RemoveTempDirectory(const std::string &path)
 {
     std::filesystem::remove_all(path);
+}
+
+uint32_t HostToLE(uint32_t val)
+{
+#ifdef PLATFORM_MACOS
+    return OSSwapHostToLittleInt32(val);
+#else
+    return htole32(val);
+#endif
 }
