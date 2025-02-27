@@ -33,7 +33,7 @@ public:
     {
         ASTRA_LOG;
 
-        Shutdown();
+        Close();
 
         if (m_imageRequestThread.joinable()) {
             m_imageRequestThread.join();
@@ -162,7 +162,7 @@ public:
         return 0;
     }
 
-    void Shutdown() {
+    void Close() {
         if (!m_shutdown.load()) {
             m_shutdown.store(true);
             m_deviceEventCV.notify_all();
@@ -278,7 +278,7 @@ private:
         } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE || event == USBDevice::USB_DEVICE_EVENT_TRANSFER_CANCELED) {
             // device disappeared
             log(ASTRA_LOG_LEVEL_DEBUG) << "Device disconnected: shutting down" << endLog;
-            Shutdown();
+            Close();
         }
     }
 
@@ -499,8 +499,8 @@ int AstraDevice::ReceiveFromConsole(std::string &data) {
     return pImpl->ReceiveFromConsole(data);
 }
 
-void AstraDevice::Shutdown() {
-    pImpl->Shutdown();
+void AstraDevice::Close() {
+    pImpl->Close();
 }
 
 const std::string AstraDevice::AstraDeviceStatusToString(AstraDeviceStatus status)

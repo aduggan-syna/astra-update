@@ -43,7 +43,7 @@ public:
     int SendToConsole(const std::string &data);
     int ReceiveFromConsole(std::string &data);
 
-    void Shutdown();
+    void Close();
 
     static const std::string AstraDeviceStatusToString(AstraDeviceStatus status);
 

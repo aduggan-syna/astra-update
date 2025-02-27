@@ -71,7 +71,7 @@ public:
 
         std::lock_guard<std::mutex> lock(m_devicesMutex);
         for (auto& device : m_devices) {
-            device->Shutdown();
+            device->Close();
         }
         m_devices.clear();
         m_transport.Shutdown();
@@ -96,6 +96,15 @@ private:
 
     std::vector<std::shared_ptr<AstraDevice>> m_devices;
     std::mutex m_devicesMutex;
+
+    void RemoveAstraDevice(std::shared_ptr<AstraDevice> astraDevice)
+    {
+        std::lock_guard<std::mutex> lock(m_devicesMutex);
+        m_devices.erase(std::remove_if(m_devices.begin(), m_devices.end(),
+            [&astraDevice](const std::shared_ptr<AstraDevice>& device) {
+                return device == astraDevice;
+            }), m_devices.end());
+    }
 
     void UpdateAstraDevice(std::shared_ptr<AstraDevice> astraDevice)
     {
@@ -130,7 +139,8 @@ private:
                 m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
             }
 
-            // TODO: shutdown and remove astra device
+            astraDevice->Close();
+            RemoveAstraDevice(astraDevice);
         }
     }
 
@@ -152,6 +162,7 @@ private:
 
         std::thread(std::bind(&AstraUpdateImpl::UpdateAstraDevice, this, astraDevice)).detach();
     }
+
 };
 
 AstraUpdate::AstraUpdate(std::shared_ptr<FlashImage> flashImage,
