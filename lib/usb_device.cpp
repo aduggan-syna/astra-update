@@ -14,7 +14,17 @@ USBDevice::USBDevice(libusb_device *device, libusb_context *ctx)
     m_ctx = ctx;
     m_handle = nullptr;
     m_config = nullptr;
-    m_open = false;
+    m_running.store(false);
+    m_interruptInEndpoint = 0;
+    m_interruptOutEndpoint = 0;
+    m_interruptInSize = 0;
+    m_interruptOutSize = 0;
+    m_interruptInBuffer = nullptr;
+    m_interruptOutBuffer = nullptr;
+    m_bulkInEndpoint = 0;
+    m_bulkOutEndpoint = 0;
+    m_bulkInSize = 0;
+    m_bulkOutSize = 0;
     m_bulkTransferTimeout = 0;
 }
 
@@ -22,11 +32,7 @@ USBDevice::~USBDevice()
 {
     ASTRA_LOG;
 
-    if (m_open) {
-        Close();
-    }
-
-    libusb_unref_device(m_device);
+    Close();
 }
 
 int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size)> usbEventCallback)
@@ -53,8 +59,6 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open USB device" << endLog;
         return 1;
     }
-
-    m_open = true;
 
     ret = libusb_get_config_descriptor(libusb_get_device(m_handle), 0, &m_config);
     if (ret < 0) {
@@ -234,21 +238,21 @@ void USBDevice::Close()
 
         delete[] m_interruptOutBuffer;
         m_interruptOutBuffer = nullptr;
-    }
 
-    if (m_handle) {
-        libusb_close(m_handle);
-        m_handle = nullptr;
-    }
+        if (m_handle) {
+            libusb_close(m_handle);
+            m_handle = nullptr;
+        }
 
-    m_open = false;
+        libusb_unref_device(m_device);
+    }
 }
 
 int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
 {
     ASTRA_LOG;
 
-    if (!m_open) {
+    if (!m_running.load()) {
         return 1;
     }
 
@@ -267,7 +271,7 @@ int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
 {
     ASTRA_LOG;
 
-    if (!m_open) {
+    if (!m_running.load()) {
         return 1;
     }
 
@@ -293,7 +297,7 @@ int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
 {
     ASTRA_LOG;
 
-    if (!m_open) {
+    if (!m_running.load()) {
         return 1;
     }
 

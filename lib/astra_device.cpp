@@ -24,20 +24,6 @@ public:
         ASTRA_LOG;
     }
 
-    ~AstraDeviceImpl()
-    {
-        ASTRA_LOG;
-
-        Close();
-
-        if (m_imageRequestThread.joinable()) {
-            m_imageRequestThread.join();
-        }
-        m_console->Shutdown();
-
-        m_usbDevice->Close();
-    }
-
     void SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback)
     {
         ASTRA_LOG;
@@ -98,7 +84,8 @@ public:
 
         m_images->insert(m_images->end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         if (m_uEnvSupport) {
-            std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
+            //std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
+            std::string uEnv = "bootcmd=reset";
             std::ofstream uEnvFile(m_tempDir + "/" + m_uEnvFilename);
             if (!uEnvFile) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
@@ -158,11 +145,17 @@ public:
     }
 
     void Close() {
-        if (!m_shutdown.load()) {
-            m_shutdown.store(true);
+        if (!m_shutdown.exchange(true)) {
             m_deviceEventCV.notify_all();
 
             m_imageRequestCV.notify_all();
+
+            if (m_imageRequestThread.joinable()) {
+                m_imageRequestThread.join();
+            }
+            m_console->Shutdown();
+
+            m_usbDevice->Close();
         }
     }
 

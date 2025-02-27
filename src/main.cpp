@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
     cxxopts::Options options("AstraUpdate", "Astra Update Utility");
 
     options.add_options()
-        ("b,boot-firmware", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("/home/aduggan/syna/astra-usbboot-firmware"))
+        ("b,boot-firmware", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("/home/aduggan/astra-usbboot-firmware"))
         ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
         ("d,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
         ("c,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))

@@ -38,7 +38,11 @@ public:
         log(ASTRA_LOG_LEVEL_INFO) << "final image: " << m_flashImage->GetFinalImage() << endLog;
     }
 
-    ~AstraUpdateImpl() {
+    ~AstraUpdateImpl()
+    {
+        ASTRA_LOG;
+
+        AstraLogStore::getInstance().Close();
     }
 
     int StartDeviceSearch(std::string bootFirmwareId)

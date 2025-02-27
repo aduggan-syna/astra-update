@@ -40,7 +40,6 @@ private:
     std::atomic<bool> m_running;
     std::string m_serialNumber;
     std::string m_usbPath;
-    bool m_open;
 
     uint8_t m_interruptInEndpoint;
     uint8_t m_interruptOutEndpoint;

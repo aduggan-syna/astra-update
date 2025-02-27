@@ -8,14 +8,10 @@
 #include "usb_transport.hpp"
 #include "astra_log.hpp"
 
-USBTransport::~USBTransport() {
+USBTransport::~USBTransport()
+{
     ASTRA_LOG;
-
     Shutdown();
-
-    if (m_ctx) {
-        libusb_exit(m_ctx);
-    }
 }
 
 void USBTransport::DeviceMonitorThread()
@@ -24,7 +20,7 @@ void USBTransport::DeviceMonitorThread()
 
     int ret;
 
-    while (m_running) {
+    while (m_running.load()) {
         ret = libusb_handle_events(m_ctx);
         if (ret < 0) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to handle events: " << libusb_error_name(ret) << endLog;
@@ -37,7 +33,7 @@ void USBTransport::DevicePollingThread()
 {
     ASTRA_LOG;
 
-    while (m_running) {
+    while (m_running.load()) {
         // Poll for device changes
         libusb_device **device_list;
         ssize_t count = libusb_get_device_list(m_ctx, &device_list);
@@ -108,12 +104,12 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to register hotplug callback: " << libusb_error_name(ret) << endLog;
         }
 
-        m_running = true;
+        m_running.store(true);
         m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
     } else {
         log(ASTRA_LOG_LEVEL_DEBUG) << "Hotplug is NOT supported" << endLog;
 
-        m_running = true;
+        m_running.store(true);
         m_deviceMonitorThread = std::thread(&USBTransport::DevicePollingThread, this);
     }
 
@@ -124,17 +120,19 @@ void USBTransport::Shutdown()
 {
     ASTRA_LOG;
 
-    if (m_running) {
+    if (m_running.exchange(false)) {
+        if (m_callbackHandle) {
+            libusb_hotplug_deregister_callback(m_ctx, m_callbackHandle);
+            m_callbackHandle = 0;
+        }
 
-        m_running = false;
         libusb_interrupt_event_handler(m_ctx);
         if (m_deviceMonitorThread.joinable()) {
             m_deviceMonitorThread.join();
         }
 
-        if (m_callbackHandle) {
-            libusb_hotplug_deregister_callback(m_ctx, m_callbackHandle);
-            m_callbackHandle = 0;
+        if (m_ctx) {
+            libusb_exit(m_ctx);
         }
     }
 }
