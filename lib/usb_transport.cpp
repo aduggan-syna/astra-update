@@ -89,7 +89,7 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to initialize libusb: " << libusb_error_name(ret) << endLog;
     }
 
-    libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
+    //libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
 
     m_deviceAddedCallback = deviceAddedCallback;
     if (libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
