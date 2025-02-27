@@ -3,8 +3,9 @@
 #include <stdexcept>
 #include <iostream>
 #include <string>
-
 #include <stdint.h>
+#include <sstream>
+#include <iomanip>
 
 std::string MakeTempDirectory()
 {
@@ -14,18 +15,18 @@ std::string MakeTempDirectory()
         throw std::runtime_error("Failed to get temp path");
     }
 
-    char tempDir[MAX_PATH];
-    if (GetTempFileName(tempPath, "TMP", 0, tempDir) == 0)
-    {
-        throw std::runtime_error("Failed to get temp file name");
-    }
+    // Generate a unique directory name
+    std::stringstream ss;
+    ss << tempPath << "TMP" << std::setw(8) << std::setfill('0') << GetTickCount();
 
-    if (!CreateDirectory(tempDir, NULL))
+    std::string tempDir = ss.str();
+
+    if (!CreateDirectory(tempDir.c_str(), NULL))
     {
         throw std::runtime_error("Failed to create temp directory");
     }
 
-    return std::string(tempDir);
+    return tempDir;
 }
 
 void RemoveTempDirectory(const std::string &path)
