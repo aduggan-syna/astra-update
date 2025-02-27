@@ -25,8 +25,11 @@ protected:
     std::function<void(std::unique_ptr<USBDevice>)> m_deviceAddedCallback;
     std::thread m_deviceMonitorThread;
     std::atomic<bool> m_running;
+    uint16_t m_vendorId;
+    uint16_t m_productId;
 
     void DeviceMonitorThread();
+    void DevicePollingThread();
 
     static int LIBUSB_CALL HotplugEventCallback(libusb_context *ctx, libusb_device *device,
                                                 libusb_hotplug_event event, void *user_data);

@@ -108,9 +108,15 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     log(ASTRA_LOG_LEVEL_DEBUG) << "USB Path: " << usbPathStream.str() << endLog;
 
     ret = libusb_detach_kernel_driver(m_handle, 0);
-    if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
-        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to detach kernel driver: " << libusb_error_name(ret) << endLog;
-        return 1;
+    if (ret < 0) {
+        if (ret == LIBUSB_ERROR_NOT_FOUND || ret == LIBUSB_ERROR_NOT_SUPPORTED) {
+            // Since some platforms don't support kernel driver detaching, we'll just log the error and continue
+            log(ASTRA_LOG_LEVEL_INFO) << "Failed to detach kernel driver: " << libusb_error_name(ret) << endLog;
+        } else {
+            // If the error is something else, we'll return an error
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to detach kernel driver: " << libusb_error_name(ret) << endLog;
+            return 1;
+        }
     }
 
     ret = libusb_claim_interface(m_handle, 0);
