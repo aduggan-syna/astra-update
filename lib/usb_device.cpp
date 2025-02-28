@@ -52,18 +52,18 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     int ret = libusb_open(m_device, &m_handle);
     if (ret < 0) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open USB device: " << libusb_error_name(ret) << endLog;
-        return 1;
+        return -1;
     }
 
     if (m_handle == nullptr) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open USB device" << endLog;
-        return 1;
+        return -1;
     }
 
     ret = libusb_get_config_descriptor(libusb_get_device(m_handle), 0, &m_config);
     if (ret < 0) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get config descriptor: " << libusb_error_name(ret) << endLog;
-        return 1;
+        return -1;
     }
 
     log(ASTRA_LOG_LEVEL_INFO) << "Configuration Descriptor:" << endLog;
@@ -81,7 +81,7 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     ret = libusb_get_device_descriptor(m_device, &desc);
     if (ret < 0) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get device descriptor: " << libusb_error_name(ret) << endLog;
-        return 1;
+        return -1;
     }
 
     if (desc.iSerialNumber != 0) {
@@ -119,14 +119,14 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
         } else {
             // If the error is something else, we'll return an error
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to detach kernel driver: " << libusb_error_name(ret) << endLog;
-            return 1;
+            return -1;
         }
     }
 
     ret = libusb_claim_interface(m_handle, 0);
     if (ret < 0) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to claim interface: " << libusb_error_name(ret) << endLog;
-        return 1;
+        return -1;
     }
 
     for (int i = 0; i < m_config->bNumInterfaces; ++i) {
@@ -184,12 +184,12 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     m_inputInterruptXfer = libusb_alloc_transfer(0);
     if (!m_inputInterruptXfer) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to allocate input interrupt transfer" << endLog;
-        return 1;
+        return -1;
     }
     m_outputInterruptXfer = libusb_alloc_transfer(0);
     if (!m_outputInterruptXfer) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to allocate output interrupt transfer" << endLog;
-        return 1;
+        return -1;
     }
 
     m_interruptInBuffer = new uint8_t[m_interruptInSize];
@@ -247,7 +247,7 @@ int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
     ASTRA_LOG;
 
     if (!m_running.load()) {
-        return 1;
+        return -1;
     }
 
     log(ASTRA_LOG_LEVEL_DEBUG) << "Reading from USB device" << endLog;
@@ -266,7 +266,7 @@ int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
     ASTRA_LOG;
 
     if (!m_running.load()) {
-        return 1;
+        return -1;
     }
 
     log(ASTRA_LOG_LEVEL_DEBUG) << "Writing to USB device" << endLog;
@@ -292,7 +292,7 @@ int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
     ASTRA_LOG;
 
     if (!m_running.load()) {
-        return 1;
+        return -1;
     }
 
     log(ASTRA_LOG_LEVEL_DEBUG) << "Sending interrupt out transfer" << endLog;
