@@ -25,6 +25,7 @@ protected:
     libusb_hotplug_callback_handle m_callbackHandle;
     std::function<void(std::unique_ptr<USBDevice>)> m_deviceAddedCallback;
     std::thread m_deviceMonitorThread;
+    std::thread m_devicePollingThread;
     std::atomic<bool> m_running;
     std::mutex m_shutdownMutex;
     uint16_t m_vendorId;

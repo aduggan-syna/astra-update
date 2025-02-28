@@ -24,8 +24,13 @@ void USBTransport::DeviceMonitorThread()
     int ret;
 
     while (m_running.load()) {
-        ret = libusb_handle_events(m_ctx);
+        struct timeval tv = { 1, 0 };
+        ret = libusb_handle_events_timeout_completed(m_ctx, &tv, nullptr);
         if (ret < 0) {
+            if (ret == LIBUSB_ERROR_INTERRUPTED) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "libusb_handle_events_timeout_completed interrupted" << endLog;
+                continue;
+            }
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to handle events: " << libusb_error_name(ret) << endLog;
             break;
         }
@@ -132,7 +137,7 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
     } else {
         log(ASTRA_LOG_LEVEL_DEBUG) << "Hotplug is NOT supported" << endLog;
 
-        m_deviceMonitorThread = std::thread(&USBTransport::DevicePollingThread, this);
+        m_devicePollingThread = std::thread(&USBTransport::DevicePollingThread, this);
     }
 
     m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
@@ -154,6 +159,10 @@ void USBTransport::Shutdown()
         libusb_interrupt_event_handler(m_ctx);
         if (m_deviceMonitorThread.joinable()) {
             m_deviceMonitorThread.join();
+        }
+
+        if (m_devicePollingThread.joinable()) {
+            m_devicePollingThread.join();
         }
 
         if (m_ctx) {
