@@ -21,6 +21,7 @@ public:
     };
 
     int Open(std::function<void(USBEvent event, uint8_t *buf, size_t size)> usbEventCallback);
+    int Start();
     void Close() override;
 
     std::string &GetUSBPath() { return m_usbPath; }
@@ -41,6 +42,7 @@ private:
     std::mutex m_closeMutex;
     std::string m_serialNumber;
     std::string m_usbPath;
+    int m_interfaceNumber;
 
     uint8_t m_interruptInEndpoint;
     uint8_t m_interruptOutEndpoint;
@@ -58,6 +60,5 @@ private:
 
     std::function<void(USBEvent event, uint8_t *buf, size_t size)> m_usbEventCallback;
 
-    void DeviceThread();
     static void LIBUSB_CALL HandleInputInterruptTransfer(struct libusb_transfer *transfer);
 };

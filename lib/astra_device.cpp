@@ -81,6 +81,12 @@ public:
         m_status = ASTRA_DEVICE_STATUS_BOOT_START;
         m_imageRequestThread= std::thread(std::bind(&AstraDeviceImpl::ImageRequestThread, this));
 
+        ret = m_usbDevice->Start();
+        if (ret < 0) {
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to start device" << endLog;
+            return ret;
+        }
+
         return 0;
     }
 
@@ -120,6 +126,7 @@ public:
                 std::unique_lock<std::mutex> lock(m_deviceEventMutex);
                 m_deviceEventCV.wait(lock);
                 if (!m_running.load()) {
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Device event received: shutting down" << endLog;
                     break;
                 }
             }
@@ -150,6 +157,11 @@ public:
 
         data = m_console->Get();
         return 0;
+    }
+
+    std::string GetDeviceName()
+    {
+        return m_deviceName;
     }
 
     void Close() {
@@ -390,9 +402,14 @@ private:
         int ret = 0;
 
         while (true) {
-            std::unique_lock<std::mutex> lock(m_imageRequestMutex);
-            m_imageRequestCV.wait(lock);
+            {
+                std::unique_lock<std::mutex> lock(m_imageRequestMutex);
+                log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
+                m_imageRequestCV.wait(lock);
+                log(ASTRA_LOG_LEVEL_DEBUG) << "after m_imageRequestCV.wait()" << endLog;
+            }
             if (!m_running.load()) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Image Request received when AstraDevice is not running" << endLog;
                 return 0;
             }
 
@@ -405,7 +422,8 @@ private:
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Requested image name prefix: '" << imageNamePrefix << "', requested Image Name: '" << m_requestedImageName << "'" << endLog;
             }
 
-            auto it = std::find_if(m_images->begin(), m_images->end(), [this](const Image &img) {
+            auto it = std::find_if(m_images->begin(), m_images->end(), [requestedImageName = m_requestedImageName](const Image &img) {
+#if 0
                 ASTRA_LOG;
 
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Comparing: " << img.GetName() << " to " << m_requestedImageName << endLog;
@@ -417,7 +435,8 @@ private:
                     log << std::hex << static_cast<int>(c) << " ";
                 }
                 log << std::dec << endLog;
-                return img.GetName() == m_requestedImageName;
+#endif
+                return img.GetName() == requestedImageName;
             });
 
             Image *image;
@@ -497,6 +516,10 @@ int AstraDevice::SendToConsole(const std::string &data) {
 
 int AstraDevice::ReceiveFromConsole(std::string &data) {
     return pImpl->ReceiveFromConsole(data);
+}
+
+std::string AstraDevice::GetDeviceName() {
+    return pImpl->GetDeviceName();
 }
 
 void AstraDevice::Close() {

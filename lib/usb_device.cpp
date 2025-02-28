@@ -17,6 +17,7 @@ USBDevice::USBDevice(libusb_device *device, libusb_context *ctx)
     m_running.store(false);
     m_interruptInEndpoint = 0;
     m_interruptOutEndpoint = 0;
+    m_interfaceNumber = 0;
     m_interruptInSize = 0;
     m_interruptOutSize = 0;
     m_interruptInBuffer = nullptr;
@@ -123,7 +124,7 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
         }
     }
 
-    ret = libusb_claim_interface(m_handle, 0);
+    ret = libusb_claim_interface(m_handle, m_interfaceNumber);
     if (ret < 0) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to claim interface: " << libusb_error_name(ret) << endLog;
         return -1;
@@ -198,14 +199,21 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     libusb_fill_interrupt_transfer(m_inputInterruptXfer, m_handle, m_interruptInEndpoint,
         m_interruptInBuffer, m_interruptInSize, HandleInputInterruptTransfer, this, 0);
 
-    ret = libusb_submit_transfer(m_inputInterruptXfer);
+    return 0;
+}
+
+int USBDevice::Start()
+{
+    ASTRA_LOG;
+
+    int ret = libusb_submit_transfer(m_inputInterruptXfer);
     if (ret < 0) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << endLog;
     }
 
     m_running.store(true);
 
-    return 0;
+    return ret;
 }
 
 void USBDevice::Close()
@@ -234,6 +242,7 @@ void USBDevice::Close()
         m_interruptOutBuffer = nullptr;
 
         if (m_handle) {
+            libusb_release_interface(m_handle, m_interfaceNumber);
             libusb_close(m_handle);
             m_handle = nullptr;
         }
