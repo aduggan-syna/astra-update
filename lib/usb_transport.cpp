@@ -88,6 +88,8 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
     //libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
 
     m_deviceAddedCallback = deviceAddedCallback;
+
+    m_running.store(true);
     if (libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
         log(ASTRA_LOG_LEVEL_DEBUG) << "Hotplug is supported" << endLog;
 
@@ -104,14 +106,13 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to register hotplug callback: " << libusb_error_name(ret) << endLog;
         }
 
-        m_running.store(true);
-        m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
     } else {
         log(ASTRA_LOG_LEVEL_DEBUG) << "Hotplug is NOT supported" << endLog;
 
-        m_running.store(true);
         m_deviceMonitorThread = std::thread(&USBTransport::DevicePollingThread, this);
     }
+
+    m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
 
     return ret;
 }
