@@ -198,8 +198,6 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     libusb_fill_interrupt_transfer(m_inputInterruptXfer, m_handle, m_interruptInEndpoint,
         m_interruptInBuffer, m_interruptInSize, HandleInputInterruptTransfer, this, 0);
 
-    m_deviceThread = std::thread(&USBDevice::DeviceThread, this);
-
     ret = libusb_submit_transfer(m_inputInterruptXfer);
     if (ret < 0) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << endLog;
@@ -217,11 +215,6 @@ void USBDevice::Close()
     std::lock_guard<std::mutex> lock(m_closeMutex);
     if (m_running.exchange(false))
     {
-        libusb_interrupt_event_handler(m_ctx);
-        if (m_deviceThread.joinable()) {
-            m_deviceThread.join();
-        }
-
         if (m_inputInterruptXfer) {
             libusb_cancel_transfer(m_inputInterruptXfer);
             libusb_free_transfer(m_inputInterruptXfer);
@@ -323,21 +316,6 @@ int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
     }
 
     return 0;
-}
-
-void USBDevice::DeviceThread()
-{
-    ASTRA_LOG;
-
-    int ret;
-
-    while (m_running.load()) {
-        ret = libusb_handle_events(m_ctx);
-        if (ret < 0) {
-            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to handle events: " << libusb_error_name(ret) << endLog;
-            break;
-        }
-    }
 }
 
 void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)

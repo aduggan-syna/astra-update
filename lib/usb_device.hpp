@@ -37,7 +37,6 @@ private:
     libusb_config_descriptor *m_config;
     struct libusb_transfer *m_inputInterruptXfer;
     struct libusb_transfer *m_outputInterruptXfer;
-    std::thread m_deviceThread;
     std::atomic<bool> m_running;
     std::mutex m_closeMutex;
     std::string m_serialNumber;
