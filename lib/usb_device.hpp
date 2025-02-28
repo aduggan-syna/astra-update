@@ -5,6 +5,7 @@
 #include <atomic>
 #include <functional>
 #include <libusb-1.0/libusb.h>
+#include <mutex>
 
 #include "device.hpp"
 
@@ -38,6 +39,7 @@ private:
     struct libusb_transfer *m_outputInterruptXfer;
     std::thread m_deviceThread;
     std::atomic<bool> m_running;
+    std::mutex m_closeMutex;
     std::string m_serialNumber;
     std::string m_usbPath;
 

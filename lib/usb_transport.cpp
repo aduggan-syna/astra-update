@@ -120,6 +120,7 @@ void USBTransport::Shutdown()
 {
     ASTRA_LOG;
 
+    std::lock_guard<std::mutex> lock(m_shutdownMutex);
     if (m_running.exchange(false)) {
         if (m_callbackHandle) {
             libusb_hotplug_deregister_callback(m_ctx, m_callbackHandle);

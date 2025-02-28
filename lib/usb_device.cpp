@@ -214,6 +214,7 @@ void USBDevice::Close()
 {
     ASTRA_LOG;
 
+    std::lock_guard<std::mutex> lock(m_closeMutex);
     if (m_running.exchange(false))
     {
         libusb_interrupt_event_handler(m_ctx);

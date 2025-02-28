@@ -24,6 +24,13 @@ public:
         ASTRA_LOG;
     }
 
+    ~AstraDeviceImpl()
+    {
+        ASTRA_LOG;
+
+        Close();
+    }
+
     void SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback)
     {
         ASTRA_LOG;
@@ -70,6 +77,7 @@ public:
         std::vector<Image> firmwareImages = firmware->GetImages();
         m_images->insert(m_images->end(), firmwareImages.begin(), firmwareImages.end());
 
+        m_running.store(true);
         m_status = ASTRA_DEVICE_STATUS_BOOT_START;
         m_imageRequestThread= std::thread(std::bind(&AstraDeviceImpl::ImageRequestThread, this));
 
@@ -111,7 +119,7 @@ public:
             for (;;) {
                 std::unique_lock<std::mutex> lock(m_deviceEventMutex);
                 m_deviceEventCV.wait(lock);
-                if (m_shutdown.load()) {
+                if (!m_running.load()) {
                     break;
                 }
             }
@@ -145,9 +153,10 @@ public:
     }
 
     void Close() {
-        if (!m_shutdown.exchange(true)) {
+        std::lock_guard<std::mutex> lock(m_closeMutex);
+        if (m_shutdown.exchange(true)) {
+            m_running.store(false);
             m_deviceEventCV.notify_all();
-
             m_imageRequestCV.notify_all();
 
             if (m_imageRequestThread.joinable()) {
@@ -163,6 +172,7 @@ private:
     std::unique_ptr<USBDevice> m_usbDevice;
     AstraDeviceStatus m_status;
     std::function<void(AstraUpdateResponse)> m_statusCallback;
+    std::atomic<bool> m_running{false};
     std::atomic<bool> m_shutdown{false};
     bool m_uEnvSupport = false;
     std::string m_deviceName;
@@ -171,6 +181,7 @@ private:
 
     std::condition_variable m_deviceEventCV;
     std::mutex m_deviceEventMutex;
+    std::mutex m_closeMutex;
 
     std::thread m_imageRequestThread;
     std::condition_variable m_imageRequestCV;
@@ -266,7 +277,8 @@ private:
         } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE || event == USBDevice::USB_DEVICE_EVENT_TRANSFER_CANCELED) {
             // device disappeared
             log(ASTRA_LOG_LEVEL_DEBUG) << "Device disconnected: shutting down" << endLog;
-            Close();
+            m_running.store(false);
+            m_deviceEventCV.notify_all();
         }
     }
 
@@ -380,7 +392,7 @@ private:
         while (true) {
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             m_imageRequestCV.wait(lock);
-            if (m_shutdown.load()) {
+            if (!m_running.load()) {
                 return 0;
             }
 

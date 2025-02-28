@@ -7,6 +7,7 @@
 #include <atomic>
 #include <functional>
 #include <libusb-1.0/libusb.h>
+#include <mutex>
 
 #include "usb_device.hpp"
 
@@ -25,6 +26,7 @@ protected:
     std::function<void(std::unique_ptr<USBDevice>)> m_deviceAddedCallback;
     std::thread m_deviceMonitorThread;
     std::atomic<bool> m_running;
+    std::mutex m_shutdownMutex;
     uint16_t m_vendorId;
     uint16_t m_productId;
 

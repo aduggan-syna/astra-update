@@ -101,15 +101,6 @@ private:
     std::vector<std::shared_ptr<AstraDevice>> m_devices;
     std::mutex m_devicesMutex;
 
-    void RemoveAstraDevice(std::shared_ptr<AstraDevice> astraDevice)
-    {
-        std::lock_guard<std::mutex> lock(m_devicesMutex);
-        m_devices.erase(std::remove_if(m_devices.begin(), m_devices.end(),
-            [&astraDevice](const std::shared_ptr<AstraDevice>& device) {
-                return device == astraDevice;
-            }), m_devices.end());
-    }
-
     void UpdateAstraDevice(std::shared_ptr<AstraDevice> astraDevice)
     {
         ASTRA_LOG;
@@ -144,7 +135,6 @@ private:
             }
 
             astraDevice->Close();
-            RemoveAstraDevice(astraDevice);
         }
     }
 
