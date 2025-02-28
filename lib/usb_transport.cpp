@@ -4,6 +4,9 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <set>
+#include <string>
+#include <sstream>
 
 #include "usb_transport.hpp"
 #include "astra_log.hpp"
@@ -33,6 +36,8 @@ void USBTransport::DevicePollingThread()
 {
     ASTRA_LOG;
 
+    std::set<std::string> seenDevices;
+
     while (m_running.load()) {
         // Poll for device changes
         libusb_device **device_list;
@@ -53,15 +58,33 @@ void USBTransport::DevicePollingThread()
 
             // Check if the device matches the vendorId and productId
             if (desc.idVendor == m_vendorId && desc.idProduct == m_productId) {
-                std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device, m_ctx);
-                if (m_deviceAddedCallback) {
-                    try {
-                        m_deviceAddedCallback(std::move(usbDevice));
-                    } catch (const std::bad_function_call& e) {
-                        log(ASTRA_LOG_LEVEL_ERROR) << "Error: " << e.what() << endLog;
+                uint8_t bus = libusb_get_bus_number(device);
+                uint8_t port = libusb_get_port_number(device);
+                uint8_t portNumbers[8];
+                int numPorts = libusb_get_port_numbers(device, portNumbers, sizeof(portNumbers));
+
+                std::stringstream usbPathStream;
+                usbPathStream << static_cast<int>(bus) << "-";
+                if (numPorts > 0) {
+                    usbPathStream << static_cast<int>(portNumbers[0]);
+                    for (int j = 1; j < numPorts; ++j) {
+                        usbPathStream << "." << static_cast<int>(portNumbers[j]);
                     }
-                } else {
-                    log(ASTRA_LOG_LEVEL_ERROR) << "No device added callback" << endLog;
+                }
+
+                std::string usbPath = usbPathStream.str();
+                if (seenDevices.find(usbPath) == seenDevices.end()) {
+                    std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device, m_ctx);
+                    if (m_deviceAddedCallback) {
+                        try {
+                            m_deviceAddedCallback(std::move(usbDevice));
+                            seenDevices.insert(usbPath);
+                        } catch (const std::bad_function_call& e) {
+                            log(ASTRA_LOG_LEVEL_ERROR) << "Error: " << e.what() << endLog;
+                        }
+                    } else {
+                        log(ASTRA_LOG_LEVEL_ERROR) << "No device added callback" << endLog;
+                    }
                 }
             }
         }
