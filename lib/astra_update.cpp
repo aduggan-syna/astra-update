@@ -114,18 +114,21 @@ private:
             int ret = astraDevice->Boot(m_firmware);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to boot device" << endLog;
+                return;
             }
 
             log(ASTRA_LOG_LEVEL_DEBUG) << "calling from Update" << endLog;
             ret = astraDevice->Update(m_flashImage);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to update device" << endLog;
+                return;
             }
 
             log(ASTRA_LOG_LEVEL_DEBUG) << "calling from WaitForCompletion" << endLog;
             ret = astraDevice->WaitForCompletion();
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to wait for completion" << endLog;
+                return;
             }
 
             log(ASTRA_LOG_LEVEL_DEBUG) << "returned from WaitForCompletion" << endLog;
