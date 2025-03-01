@@ -433,7 +433,7 @@ private:
                 if (m_imageRequestReady) {
                     m_imageRequestReady = false;
                 }
-                return previousValue;
+                return previousValue  || !m_running.load();
             });
             log(ASTRA_LOG_LEVEL_DEBUG) << "after m_imageRequestCV.wait()" << endLog;
             if (!m_running.load()) {
