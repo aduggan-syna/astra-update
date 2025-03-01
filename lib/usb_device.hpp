@@ -21,7 +21,7 @@ public:
     };
 
     int Open(std::function<void(USBEvent event, uint8_t *buf, size_t size)> usbEventCallback);
-    int Start();
+    int EnableInterrupts();
     void Close() override;
 
     std::string &GetUSBPath() { return m_usbPath; }

@@ -75,13 +75,20 @@ public:
         m_status = ASTRA_DEVICE_STATUS_OPENED;
 
         std::vector<Image> firmwareImages = firmware->GetImages();
-        m_images->insert(m_images->end(), firmwareImages.begin(), firmwareImages.end());
+
+        {
+            std::unique_lock<std::mutex> lock(m_imageMutex);
+            m_images.insert(m_images.end(), firmwareImages.begin(), firmwareImages.end());
+        }
 
         m_running.store(true);
         m_status = ASTRA_DEVICE_STATUS_BOOT_START;
         m_imageRequestThread= std::thread(std::bind(&AstraDeviceImpl::ImageRequestThread, this));
 
-        ret = m_usbDevice->Start();
+        std::unique_lock<std::mutex> lock(m_imageRequestThreadReadyMutex);
+        m_imageRequestThreadReadyCV.wait(lock);
+
+        ret = m_usbDevice->EnableInterrupts();
         if (ret < 0) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to start device" << endLog;
             return ret;
@@ -96,7 +103,10 @@ public:
 
         m_finalUpdateImage = flashImage->GetFinalImage();
 
-        m_images->insert(m_images->end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
+        {
+            std::unique_lock<std::mutex> lock(m_imageMutex);
+            m_images.insert(m_images.end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
+        }
         if (m_uEnvSupport) {
             //std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
             std::string uEnv = "bootcmd=reset";
@@ -107,7 +117,10 @@ public:
             }
             uEnvFile << uEnv;
             uEnvFile.close();
-            m_images->push_back(*m_uEnvImage);
+            {
+                std::unique_lock<std::mutex> lock(m_imageMutex);
+                m_images.push_back(*m_uEnvImage);
+            }
         } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
             if (m_console->WaitForPrompt()) {
                 SendToConsole(flashImage->GetFlashCommand() + "\n");
@@ -123,8 +136,10 @@ public:
 
         if (m_uEnvSupport) {
             for (;;) {
-                std::unique_lock<std::mutex> lock(m_deviceEventMutex);
-                m_deviceEventCV.wait(lock);
+                {
+                    std::unique_lock<std::mutex> lock(m_deviceEventMutex);
+                    m_deviceEventCV.wait(lock);
+                }
                 if (!m_running.load()) {
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Device event received: shutting down" << endLog;
                     break;
@@ -189,7 +204,8 @@ private:
     bool m_uEnvSupport = false;
     std::string m_deviceName;
 
-    std::shared_ptr<std::vector<Image>> m_images = std::make_shared<std::vector<Image>>();
+    std::mutex m_imageMutex;
+    std::vector<Image> m_images;
 
     std::condition_variable m_deviceEventCV;
     std::mutex m_deviceEventMutex;
@@ -200,6 +216,8 @@ private:
     std::mutex m_imageRequestMutex;
     uint8_t m_imageType;
     std::string m_requestedImageName;
+    std::condition_variable m_imageRequestThreadReadyCV;
+    std::mutex m_imageRequestThreadReadyMutex;
 
     const std::string m_imageRequestString = "i*m*g*r*q*";
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
@@ -401,6 +419,8 @@ private:
 
         int ret = 0;
 
+        m_imageRequestThreadReadyCV.notify_all();
+
         while (true) {
             {
                 std::unique_lock<std::mutex> lock(m_imageRequestMutex);
@@ -422,66 +442,69 @@ private:
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Requested image name prefix: '" << imageNamePrefix << "', requested Image Name: '" << m_requestedImageName << "'" << endLog;
             }
 
-            auto it = std::find_if(m_images->begin(), m_images->end(), [requestedImageName = m_requestedImageName](const Image &img) {
-#if 0
-                ASTRA_LOG;
+            {
+                std::lock_guard<std::mutex> lock(m_imageMutex);
+                auto it = std::find_if(m_images.begin(), m_images.end(), [requestedImageName = m_requestedImageName](const Image &img) {
+    #if 0
+                    ASTRA_LOG;
 
-                log(ASTRA_LOG_LEVEL_DEBUG) << "Comparing: " << img.GetName() << " to " << m_requestedImageName << endLog;
-                for (char c : img.GetName()) {
-                    log << std::hex << static_cast<int>(c) << " ";
-                }
-                log << " vs ";
-                for (char c : m_requestedImageName) {
-                    log << std::hex << static_cast<int>(c) << " ";
-                }
-                log << std::dec << endLog;
-#endif
-                return img.GetName() == requestedImageName;
-            });
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Comparing: " << img.GetName() << " to " << requestedImageName << endLog;
+                    for (char c : img.GetName()) {
+                        log << std::hex << static_cast<int>(c) << " ";
+                    }
+                    log << " vs ";
+                    for (char c : requestedImageName) {
+                        log << std::hex << static_cast<int>(c) << " ";
+                    }
+                    log << std::dec << endLog;
+    #endif
+                    return img.GetName() == requestedImageName;
+                });
 
-            Image *image;
-            if (it == m_images->end()) {
-                if (m_requestedImageName == m_sizeRequestImageFilename) {
-                    image = m_sizeRequestImage.get();
-                } else if (m_requestedImageName == m_usbPathImageFilename) {
-                    image = m_usbPathImage.get();
+                Image *image;
+                if (it == m_images.end()) {
+                    if (m_requestedImageName == m_sizeRequestImageFilename) {
+                        image = m_sizeRequestImage.get();
+                    } else if (m_requestedImageName == m_usbPathImageFilename) {
+                        image = m_usbPathImage.get();
+                    } else {
+                        log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
+                        return -1;
+                    }
                 } else {
-                    log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
-                    return -1;
+                    image = &(*it);
                 }
-            } else {
-                image = &(*it);
-            }
 
-            if (m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
-                m_status = ASTRA_DEVICE_STATUS_BOOT_PROGRESS;
-            } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
-                m_status = ASTRA_DEVICE_STATUS_UPDATE_PROGRESS;
-            }
+                if (m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                    m_status = ASTRA_DEVICE_STATUS_BOOT_PROGRESS;
+                } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                    m_status = ASTRA_DEVICE_STATUS_UPDATE_PROGRESS;
+                }
 
-            ret = SendImage(image);
-            log(ASTRA_LOG_LEVEL_DEBUG) << "After send image: " << image->GetName() << endLog;
-            if (ret < 0) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send image" << endLog;
-                if (m_status == ASTRA_DEVICE_STATUS_BOOT_START || m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
-                    m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
-                } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START || m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
-                    m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
+                ret = SendImage(image);
+                log(ASTRA_LOG_LEVEL_DEBUG) << "After send image: " << image->GetName() << endLog;
+                if (ret < 0) {
+                    log(ASTRA_LOG_LEVEL_ERROR) << "Failed to send image" << endLog;
+                    if (m_status == ASTRA_DEVICE_STATUS_BOOT_START || m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
+                        m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
+                    } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START || m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
+                        m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
+                    }
+                    SendStatus(m_status, 0, image->GetName(), "Failed to send image");
+                    return ret;
+                } else {
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image '" << m_finalBootImage << "' final update image : '" << m_finalUpdateImage << "'" << endLog;
+                    if (image->GetName().find(m_finalBootImage) != std::string::npos) {
+                        log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
+                        m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
+                    } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) {
+                        log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
+                        m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
+                    }
+                    SendStatus(m_status, 100, "", "Success");
+                    m_imageCount++;
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Image count: " << m_imageCount << endLog;
                 }
-                SendStatus(m_status, 0, image->GetName(), "Failed to send image");
-                return ret;
-            } else {
-                log(ASTRA_LOG_LEVEL_DEBUG) << "Image sent successfully: " << image->GetName() << " final boot image '" << m_finalBootImage << "' final update image : '" << m_finalUpdateImage << "'" << endLog;
-                if (image->GetName().find(m_finalBootImage) != std::string::npos) {
-                    log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
-                    m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
-                } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) {
-                    log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
-                    m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
-                }
-                SendStatus(m_status, 100, "", "Success");
-                m_imageCount++;
-                log(ASTRA_LOG_LEVEL_DEBUG) << "Image count: " << m_imageCount << endLog;
             }
         }
 

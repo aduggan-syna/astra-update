@@ -202,7 +202,7 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     return 0;
 }
 
-int USBDevice::Start()
+int USBDevice::EnableInterrupts()
 {
     ASTRA_LOG;
 
