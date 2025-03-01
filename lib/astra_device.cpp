@@ -77,7 +77,7 @@ public:
         std::vector<Image> firmwareImages = firmware->GetImages();
 
         {
-            std::unique_lock<std::mutex> lock(m_imageMutex);
+            std::lock_guard<std::mutex> lock(m_imageMutex);
             m_images.insert(m_images.end(), firmwareImages.begin(), firmwareImages.end());
         }
 
@@ -104,7 +104,7 @@ public:
         m_finalUpdateImage = flashImage->GetFinalImage();
 
         {
-            std::unique_lock<std::mutex> lock(m_imageMutex);
+            std::lock_guard<std::mutex> lock(m_imageMutex);
             m_images.insert(m_images.end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         }
         if (m_uEnvSupport) {
@@ -118,7 +118,7 @@ public:
             uEnvFile << uEnv;
             uEnvFile.close();
             {
-                std::unique_lock<std::mutex> lock(m_imageMutex);
+                std::lock_guard<std::mutex> lock(m_imageMutex);
                 m_images.push_back(*m_uEnvImage);
             }
         } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
@@ -136,10 +136,8 @@ public:
 
         if (m_uEnvSupport) {
             for (;;) {
-                {
-                    std::unique_lock<std::mutex> lock(m_deviceEventMutex);
-                    m_deviceEventCV.wait(lock);
-                }
+                std::unique_lock<std::mutex> lock(m_deviceEventMutex);
+                m_deviceEventCV.wait(lock);
                 if (!m_running.load()) {
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Device event received: shutting down" << endLog;
                     break;
@@ -214,6 +212,7 @@ private:
     std::thread m_imageRequestThread;
     std::condition_variable m_imageRequestCV;
     std::mutex m_imageRequestMutex;
+    bool m_imageRequestReady = false;
     uint8_t m_imageType;
     std::string m_requestedImageName;
     std::condition_variable m_imageRequestThreadReadyCV;
@@ -277,7 +276,6 @@ private:
                 m_status = ASTRA_DEVICE_STATUS_UPDATE_START;
             }
 
-            std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             it += m_imageRequestString.size();
             m_imageType = buf[it];
             log(ASTRA_LOG_LEVEL_DEBUG) << "Image type: " << std::hex << m_imageType << std::dec << endLog;
@@ -292,6 +290,10 @@ private:
             }
             log(ASTRA_LOG_LEVEL_DEBUG) << "Requested image name: '" << m_requestedImageName << "'" << endLog;
 
+            {
+                std::lock_guard<std::mutex> lock(m_imageRequestMutex);
+                m_imageRequestReady = true;
+            }
             m_imageRequestCV.notify_one();
         } else {
             m_console->Append(message);
@@ -422,12 +424,18 @@ private:
         m_imageRequestThreadReadyCV.notify_all();
 
         while (true) {
-            {
-                std::unique_lock<std::mutex> lock(m_imageRequestMutex);
-                log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
-                m_imageRequestCV.wait(lock);
-                log(ASTRA_LOG_LEVEL_DEBUG) << "after m_imageRequestCV.wait()" << endLog;
-            }
+            std::unique_lock<std::mutex> lock(m_imageRequestMutex);
+            log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
+            m_imageRequestCV.wait(lock, [this] {
+                // If true, then set to false in the lambda while the lock is
+                // held.
+                bool previousValue = m_imageRequestReady;
+                if (m_imageRequestReady) {
+                    m_imageRequestReady = false;
+                }
+                return previousValue;
+            });
+            log(ASTRA_LOG_LEVEL_DEBUG) << "after m_imageRequestCV.wait()" << endLog;
             if (!m_running.load()) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Image Request received when AstraDevice is not running" << endLog;
                 return 0;
