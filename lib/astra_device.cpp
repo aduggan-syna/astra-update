@@ -85,8 +85,9 @@ public:
         m_status = ASTRA_DEVICE_STATUS_BOOT_START;
         m_imageRequestThread= std::thread(std::bind(&AstraDeviceImpl::ImageRequestThread, this));
 
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Waiting for imageRequest thread to be ready" << endLog;
         std::unique_lock<std::mutex> lock(m_imageRequestThreadReadyMutex);
-        m_imageRequestThreadReadyCV.wait(lock);
+        m_imageRequestThreadReadyCV.wait(lock, [this] { return m_imageRequestThreadReady; });
 
         ret = m_usbDevice->EnableInterrupts();
         if (ret < 0) {
@@ -178,6 +179,8 @@ public:
     }
 
     void Close() {
+        ASTRA_LOG;
+
         std::lock_guard<std::mutex> lock(m_closeMutex);
         if (m_shutdown.exchange(true)) {
             m_running.store(false);
@@ -185,11 +188,17 @@ public:
             m_imageRequestCV.notify_all();
 
             if (m_imageRequestThread.joinable()) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Joining image request thread" << endLog;
                 m_imageRequestThread.join();
+            } else {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Image request thread not joinable" << endLog;
             }
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down console" << endLog;
             m_console->Shutdown();
 
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Closing USB device" << endLog;
             m_usbDevice->Close();
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Close complete" << endLog;
         }
     }
 
@@ -217,6 +226,7 @@ private:
     std::string m_requestedImageName;
     std::condition_variable m_imageRequestThreadReadyCV;
     std::mutex m_imageRequestThreadReadyMutex;
+    bool m_imageRequestThreadReady = false;
 
     const std::string m_imageRequestString = "i*m*g*r*q*";
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
@@ -421,6 +431,12 @@ private:
 
         int ret = 0;
 
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Signal image request thread ready" << endLog;
+
+        {
+            std::lock_guard<std::mutex> lock(m_imageRequestThreadReadyMutex);
+            m_imageRequestThreadReady = true;
+        }
         m_imageRequestThreadReadyCV.notify_all();
 
         while (true) {
@@ -428,7 +444,7 @@ private:
             log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
             m_imageRequestCV.wait(lock, [this] {
                 // If true, then set to false in the lambda while the lock is
-                // held.
+                // held. If no longer running then return true to exit the loop.
                 bool previousValue = m_imageRequestReady;
                 if (m_imageRequestReady) {
                     m_imageRequestReady = false;
