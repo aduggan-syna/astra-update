@@ -178,6 +178,11 @@ public:
         return m_deviceName;
     }
 
+    AstraDeviceStatus GetDeviceStatus()
+    {
+        return m_status;
+    }
+
     void Close() {
         ASTRA_LOG;
 
@@ -567,6 +572,10 @@ int AstraDevice::ReceiveFromConsole(std::string &data) {
 
 std::string AstraDevice::GetDeviceName() {
     return pImpl->GetDeviceName();
+}
+
+AstraDeviceStatus AstraDevice::GetDeviceStatus() {
+    return pImpl->GetDeviceStatus();
 }
 
 void AstraDevice::Close() {

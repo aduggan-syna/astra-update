@@ -133,7 +133,9 @@ private:
             }
 
             log(ASTRA_LOG_LEVEL_DEBUG) << "returned from WaitForCompletion" << endLog;
-            if (!m_updateContinuously) {
+            AstraDeviceStatus status = astraDevice->GetDeviceStatus();
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Device status: " << AstraDevice::AstraDeviceStatusToString(status) << endLog;
+            if (status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE && !m_updateContinuously) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down Astra Update" << endLog;
                 m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
             }
