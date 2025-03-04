@@ -156,10 +156,15 @@ private:
     {
         ASTRA_LOG;
 
+        // This code is meant to prevent multiple devices from being added
+        // it not in continuous mode. But, if the device hangs in the bootloader
+        // we want to be able to restart. Disable for now and revisit if needed.
+#if 0
         if (m_deviceFound && !m_updateContinuously) {
             log(ASTRA_LOG_LEVEL_DEBUG) << "Device already found" << endLog;
             return;
         }
+#endif
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Device added AstraUpdateImpl::DeviceAddedCallback" << endLog;
         std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device), m_tempDir);

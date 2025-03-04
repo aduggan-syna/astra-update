@@ -447,7 +447,10 @@ private:
         while (true) {
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
-            m_imageRequestCV.wait(lock, [this] {
+
+            auto timeout = std::chrono::seconds(5);
+
+            bool notified = m_imageRequestCV.wait_for(lock, timeout, [this] {
                 // If true, then set to false in the lambda while the lock is
                 // held. If no longer running then return true to exit the loop.
                 bool previousValue = m_imageRequestReady;
@@ -456,10 +459,21 @@ private:
                 }
                 return previousValue  || !m_running.load();
             });
+
             log(ASTRA_LOG_LEVEL_DEBUG) << "after m_imageRequestCV.wait()" << endLog;
             if (!m_running.load()) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Image Request received when AstraDevice is not running" << endLog;
                 return 0;
+            }
+
+            if (!notified) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Timeout waiting for image request" << endLog;
+                if (m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
+                    SendStatus(ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, "", "Timeout during boot");
+                    return -1;
+                } else {
+                    continue;
+                }
             }
 
             std::string imageNamePrefix;
@@ -505,8 +519,10 @@ private:
                 }
 
                 if (m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Boot status set to ASTRA_DEVICE_STATUS_BOOT_PROGRESS" << endLog;
                     m_status = ASTRA_DEVICE_STATUS_BOOT_PROGRESS;
                 } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                    log(ASTRA_LOG_LEVEL_DEBUG) << "Update status set to ASTRA_DEVICE_STATUS_UPDATE_PROGRESS" << endLog;
                     m_status = ASTRA_DEVICE_STATUS_UPDATE_PROGRESS;
                 }
 
@@ -526,7 +542,7 @@ private:
                     if (image->GetName().find(m_finalBootImage) != std::string::npos) {
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
                         m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
-                    } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) {
+                    } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) { // FIXME: If there us a home_s.subimg.1 the reports complete too soon
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
                         m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
                     }

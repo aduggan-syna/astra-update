@@ -160,6 +160,10 @@ int main(int argc, char* argv[])
                 std::cout << "Updating Device: " << deviceResponse.m_deviceName << std::endl;
             } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
                 std::cout << "Device: " << deviceResponse.m_deviceName << " Update Complete" << std::endl;
+            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_FAIL) {
+                std::cout << "Device: " << deviceResponse.m_deviceName << " Boot Failed: " << deviceResponse.m_message << std::endl;
+            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_FAIL) {
+                std::cout << "Device: " << deviceResponse.m_deviceName << " Update Failed" << std::endl;
             } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_START ||
                 deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS ||
                 deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE)
