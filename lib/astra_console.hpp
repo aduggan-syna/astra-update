@@ -13,7 +13,7 @@ public:
     AstraConsole(std::string deviceName, std::string logPath)
     {
         std::string logFile = logPath + "/console-" + deviceName + ".log";
-        m_consoleLog = std::ofstream(logFile);
+        m_consoleLog = std::ofstream(logFile, std::ios::out | std::ios::trunc);
     }
 
     ~AstraConsole();

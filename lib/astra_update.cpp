@@ -31,7 +31,7 @@ public:
             }
         } else {
             m_tempDir = tempDir;
-            std::filesystem::remove_all(m_tempDir);
+            //std::filesystem::remove_all(m_tempDir);
             std::filesystem::create_directories(m_tempDir);
         }
 
