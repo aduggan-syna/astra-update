@@ -50,4 +50,5 @@ void AstraConsole::Shutdown()
 
     m_shutdown.store(true);
     m_promptCV.notify_all();
+    m_consoleLog.close();
 }
