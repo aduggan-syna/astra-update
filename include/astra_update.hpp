@@ -21,7 +21,9 @@ public:
         std::function<void(AstraUpdateResponse)> responseCallback,
         bool updateContinuously = false,
         AstraLogLevel minLogLevel = ASTRA_LOG_LEVEL_WARNING,
-        const std::string &logPath = "");
+        const std::string &logPath = "",
+        const std::string &tempDir = ""
+    );
     ~AstraUpdate();
 
     int StartDeviceSearch(std::string bootFirmwareId);

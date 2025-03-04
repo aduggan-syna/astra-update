@@ -84,6 +84,7 @@ int main(int argc, char* argv[])
         ("d,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
         ("c,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage")
+        ("t,temp-dir", "Temporary directory", cxxopts::value<std::string>()->default_value(""))
         ("flash", "Flash image path", cxxopts::value<std::string>());
 
     options.parse_positional({"flash"});
@@ -104,6 +105,7 @@ int main(int argc, char* argv[])
     std::string flashImagePath = result["flash"].as<std::string>();
     std::string bootFirmwarePath = result["boot-firmware"].as<std::string>();
     std::string logFilePath = result["log"].as<std::string>();
+    std::string tempDir = result["temp-dir"].as<std::string>();
     bool debug = result["debug"].as<bool>();
     bool continuous = result["continuous"].as<bool>();
     AstraLogLevel logLevel = debug ?  ASTRA_LOG_LEVEL_DEBUG : ASTRA_LOG_LEVEL_INFO;
@@ -116,7 +118,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath);
+    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath, tempDir);
 
     ret = update.StartDeviceSearch(flashImage->GetBootFirmwareId());
     if (ret < 0) {

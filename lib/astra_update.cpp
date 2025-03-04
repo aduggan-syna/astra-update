@@ -3,6 +3,7 @@
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <filesystem>
 #include <condition_variable>
 #include "astra_device.hpp"
 #include "astra_update.hpp"
@@ -18,13 +19,20 @@ public:
         std::string bootFirmwarePath,
         std::function<void(AstraUpdateResponse)> responseCallback,
         bool updateContinuously,
-        AstraLogLevel minLogLevel, const std::string &logPath)
+        AstraLogLevel minLogLevel, const std::string &logPath,
+        const std::string &tempDir)
         : m_flashImage(flashImage), m_bootFirmwarePath{bootFirmwarePath},
         m_responseCallback{responseCallback} ,m_updateContinuously{updateContinuously}
     {
-        m_tempDir = MakeTempDirectory();
-        if (m_tempDir.empty()) {
-            m_tempDir = "./";
+        if (tempDir.empty()) {
+            m_tempDir = MakeTempDirectory();
+            if (m_tempDir.empty()) {
+                m_tempDir = "./";
+            }
+        } else {
+            m_tempDir = tempDir;
+            std::filesystem::remove_all(m_tempDir);
+            std::filesystem::create_directories(m_tempDir);
         }
 
         std::string modifiedLogPath = logPath;
@@ -169,9 +177,10 @@ AstraUpdate::AstraUpdate(std::shared_ptr<FlashImage> flashImage,
     std::string bootFirmwarePath,
     std::function<void(AstraUpdateResponse)> responseCallback,
     bool updateContinuously,
-    AstraLogLevel minLogLevel, const std::string &logPath)
+    AstraLogLevel minLogLevel, const std::string &logPath,
+    const std::string &tempDir)
     : pImpl{std::make_unique<AstraUpdateImpl>(flashImage, bootFirmwarePath, responseCallback,
-        updateContinuously, minLogLevel, logPath)}
+        updateContinuously, minLogLevel, logPath, tempDir)}
 {}
 
 AstraUpdate::~AstraUpdate() = default;

@@ -29,14 +29,6 @@ std::string MakeTempDirectory()
     return tempDir;
 }
 
-void RemoveTempDirectory(const std::string &path)
-{
-    if (!RemoveDirectory(path.c_str()))
-    {
-        throw std::runtime_error("Failed to remove temp directory");
-    }
-}
-
 uint32_t HostToLE(uint32_t val)
 {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
