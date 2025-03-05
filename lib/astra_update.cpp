@@ -13,6 +13,10 @@
 #include "astra_log.hpp"
 #include "utils.hpp"
 
+#if PLATFORM_WINDOWS
+#include "win_usb_transport.hpp"
+#endif
+
 class AstraUpdate::AstraUpdateImpl {
 public:
     AstraUpdateImpl(std::shared_ptr<FlashImage> flashImage,
@@ -64,7 +68,13 @@ public:
         uint16_t vendorId = m_firmware->GetVendorId();
         uint16_t productId = m_firmware->GetProductId();
 
-        if (m_transport.Init(vendorId, productId,
+#if PLATFORM_WINDOWS
+        m_transport = std::make_unique<WinUSBTransport>();
+#else
+        m_transport = std::make_unique<USBTransport>();
+#endif
+
+        if (m_transport->Init(vendorId, productId,
                 std::bind(&AstraUpdateImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
         {
             return 1;
@@ -86,7 +96,7 @@ public:
             device->Close();
         }
         m_devices.clear();
-        m_transport.Shutdown();
+        m_transport->Shutdown();
     }
 
     std::shared_ptr<AstraBootFirmware> GetBootFirmware()
@@ -97,7 +107,7 @@ public:
     }
 
 private:
-    USBTransport m_transport;
+    std::unique_ptr<USBTransport> m_transport;
     std::function<void(AstraUpdateResponse)> m_responseCallback;
     std::string m_bootFirmwarePath;
     std::shared_ptr<AstraBootFirmware> m_firmware;

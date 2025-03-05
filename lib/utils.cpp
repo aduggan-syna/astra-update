@@ -1,5 +1,6 @@
-#include "utils.hpp"
-#include <windows.h>
+#include <string>
+#include <iostream>
+#include <filesystem>
 #include <stdexcept>
 #include <iostream>
 #include <string>
@@ -7,6 +8,39 @@
 #include <sstream>
 #include <iomanip>
 
+#ifdef PLATFORM_WINDOWS
+#include <windows.h>
+#endif
+
+#ifdef PLATFORM_MACOS
+#include <libkern/OSByteOrder.h>
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#endif
+
+#include "utils.hpp"
+
+#ifdef PLATFORM_MACOS || PLATFORM_LINUX
+#include <unistd.h>
+
+std::string MakeTempDirectory()
+{
+    char temp[] = "/tmp/astra-update-XXXXXX";
+    if (mkdtemp(temp) == nullptr) {
+        return "";
+    }
+
+    return std::string(temp);
+}
+
+uint32_t HostToLE(uint32_t val)
+{
+#ifdef PLATFORM_MACOS
+    return OSSwapHostToLittleInt32(val);
+#else
+    return htole32(val);
+#endif
+}
+#else PLATFORM_WINDOWS
 std::string MakeTempDirectory()
 {
     char tempPath[MAX_PATH];
@@ -37,3 +71,4 @@ uint32_t HostToLE(uint32_t val)
     return _byteswap_ulong(val);
 #endif
 }
+#endif

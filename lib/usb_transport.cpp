@@ -37,70 +37,6 @@ void USBTransport::DeviceMonitorThread()
     }
 }
 
-void USBTransport::DevicePollingThread()
-{
-    ASTRA_LOG;
-
-    std::set<std::string> seenDevices;
-
-    while (m_running.load()) {
-        // Poll for device changes
-        libusb_device **device_list;
-        ssize_t count = libusb_get_device_list(m_ctx, &device_list);
-        if (count < 0) {
-            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get device list: " << libusb_error_name(count) << endLog;
-            continue;
-        }
-
-        for (ssize_t i = 0; i < count; ++i) {
-            libusb_device *device = device_list[i];
-            libusb_device_descriptor desc;
-            int ret = libusb_get_device_descriptor(device, &desc);
-            if (ret < 0) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to get device descriptor" << endLog;
-                continue;
-            }
-
-            // Check if the device matches the vendorId and productId
-            if (desc.idVendor == m_vendorId && desc.idProduct == m_productId) {
-                uint8_t bus = libusb_get_bus_number(device);
-                uint8_t port = libusb_get_port_number(device);
-                uint8_t portNumbers[8];
-                int numPorts = libusb_get_port_numbers(device, portNumbers, sizeof(portNumbers));
-
-                std::stringstream usbPathStream;
-                usbPathStream << static_cast<int>(bus) << "-";
-                if (numPorts > 0) {
-                    usbPathStream << static_cast<int>(portNumbers[0]);
-                    for (int j = 1; j < numPorts; ++j) {
-                        usbPathStream << "." << static_cast<int>(portNumbers[j]);
-                    }
-                }
-
-                std::string usbPath = usbPathStream.str();
-                if (seenDevices.find(usbPath) == seenDevices.end()) {
-                    std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device, m_ctx);
-                    if (m_deviceAddedCallback) {
-                        try {
-                            m_deviceAddedCallback(std::move(usbDevice));
-                            seenDevices.insert(usbPath);
-                        } catch (const std::bad_function_call& e) {
-                            log(ASTRA_LOG_LEVEL_ERROR) << "Error: " << e.what() << endLog;
-                        }
-                    } else {
-                        log(ASTRA_LOG_LEVEL_ERROR) << "No device added callback" << endLog;
-                    }
-                }
-            }
-        }
-
-        libusb_free_device_list(device_list, 1);
-
-        // Sleep for a while before polling again
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-}
-
 int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void(std::unique_ptr<USBDevice>)> deviceAddedCallback)
 {
     ASTRA_LOG;
@@ -136,8 +72,6 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
 
     } else {
         log(ASTRA_LOG_LEVEL_DEBUG) << "Hotplug is NOT supported" << endLog;
-
-        m_devicePollingThread = std::thread(&USBTransport::DevicePollingThread, this);
     }
 
     m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
@@ -161,14 +95,17 @@ void USBTransport::Shutdown()
             m_deviceMonitorThread.join();
         }
 
-        if (m_devicePollingThread.joinable()) {
-            m_devicePollingThread.join();
-        }
-
         if (m_ctx) {
             libusb_exit(m_ctx);
         }
     }
+}
+
+void USBTransport::StartDeviceMonitor()
+{
+    ASTRA_LOG;
+
+    m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
 }
 
 int LIBUSB_CALL USBTransport::HotplugEventCallback(libusb_context *ctx, libusb_device *device,

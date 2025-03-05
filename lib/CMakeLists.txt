@@ -30,12 +30,11 @@ file(GLOB SRC astra_boot_firmware.cpp
                 image.cpp
                 usb_device.cpp
                 usb_transport.cpp
+                utils.cpp
 )
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    list(APPEND SRC platform/posix_utils.cpp)
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    list(APPEND SRC platform/windows_utils.cpp)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    list(APPEND SRC win_usb_transport.cpp)
 endif()
 
 add_library(astraupdate STATIC ${SRC})
