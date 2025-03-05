@@ -344,7 +344,7 @@ private:
         if (m_imageType > 0x79)
         {
             std::string imageName = m_sizeRequestImage->GetPath();
-            FILE *sizeFile = fopen(imageName.c_str(), "w");
+            FILE *sizeFile = fopen(imageName.c_str(), "wb");
             if (!sizeFile) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open " << imageName << " file" << endLog;
                 return -1;
@@ -356,6 +356,7 @@ private:
                 fclose(sizeFile);
                 return -1;
             }
+            fflush(sizeFile);
             fclose(sizeFile);
         }
 
