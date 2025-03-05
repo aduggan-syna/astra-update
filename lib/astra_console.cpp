@@ -1,5 +1,18 @@
+#include <algorithm>
+
 #include "astra_console.hpp"
 #include "astra_log.hpp"
+
+AstraConsole::AstraConsole(std::string deviceName, std::string logPath)
+{
+    ASTRA_LOG;
+
+    std::string modifiedDeviceName = deviceName;
+    std::remove(modifiedDeviceName.begin(), modifiedDeviceName.end(), ':');
+    std::replace(modifiedDeviceName.begin(), modifiedDeviceName.end(), '.', '_');
+    std::string logFile = logPath + "/console-" + modifiedDeviceName + ".log";
+    m_consoleLog = std::ofstream(logFile, std::ios::out | std::ios::trunc);
+}
 
 AstraConsole::~AstraConsole()
 {

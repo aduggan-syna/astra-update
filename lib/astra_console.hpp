@@ -10,12 +10,7 @@
 class AstraConsole
 {
 public:
-    AstraConsole(std::string deviceName, std::string logPath)
-    {
-        std::string logFile = logPath + "/console-" + deviceName + ".log";
-        m_consoleLog = std::ofstream(logFile, std::ios::out | std::ios::trunc);
-    }
-
+    AstraConsole(std::string deviceName, std::string logPath);
     ~AstraConsole();
 
     void Append(const std::string &data);
