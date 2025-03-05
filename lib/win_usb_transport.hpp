@@ -15,7 +15,6 @@ public:
     void Shutdown() override;
 
 private:
-    bool InitializeHotplugHandler();
     void RunHotplugHandler();
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
     void OnDeviceArrived();

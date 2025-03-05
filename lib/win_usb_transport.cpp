@@ -27,10 +27,6 @@ int WinUSBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<v
 
     m_running.store(true);
 
-    if (!InitializeHotplugHandler()) {
-        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to initialize USB hotplug handler" << endLog;
-        return -1;
-    }
     m_hotplugThread = std::thread(&WinUSBTransport::RunHotplugHandler, this);
 
     StartDeviceMonitor();
@@ -63,20 +59,26 @@ void WinUSBTransport::Shutdown()
     }
 }
 
-bool WinUSBTransport::InitializeHotplugHandler()
+void WinUSBTransport::RunHotplugHandler()
 {
+    ASTRA_LOG;
+
     WNDCLASS wc = { 0 };
     wc.lpfnWndProc = WinUSBTransport::WndProc;
     wc.hInstance = GetModuleHandle(nullptr);
     wc.lpszClassName = TEXT("WinUSBTransport");
 
     if (!RegisterClass(&wc)) {
-        return false;
+        DWORD error = GetLastError();
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to register window class: " << error << endLog;
+        return;
     }
 
     m_hWnd = CreateWindow(wc.lpszClassName, TEXT("WinUSBTransport"), 0, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, this);
     if (!m_hWnd) {
-        return false;
+        DWORD error = GetLastError();
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to create window: " << error << endLog;
+        return;
     }
 
     DEV_BROADCAST_DEVICEINTERFACE dbi = { 0 };
@@ -86,11 +88,12 @@ bool WinUSBTransport::InitializeHotplugHandler()
     dbi.dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE;
 
     m_hDevNotify = RegisterDeviceNotification(m_hWnd, &dbi, DEVICE_NOTIFY_WINDOW_HANDLE);
-    return m_hDevNotify != nullptr;
-}
+    if (!m_hDevNotify) {
+        DWORD error = GetLastError();
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to register device notification: " << error << endLog;
+        return;
+    }
 
-void WinUSBTransport::RunHotplugHandler()
-{
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
