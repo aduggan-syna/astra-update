@@ -1,6 +1,7 @@
 #include "astra_log.hpp"
 #include <iostream>
 #include <mutex>
+#include <chrono>
 
 std::unique_ptr<AstraLogStore> AstraLogStore::instance;
 std::once_flag AstraLogStore::initInstanceFlag;
@@ -77,8 +78,18 @@ std::string AstraLog::LevelToString(AstraLogLevel level) {
 
 std::string AstraLog::FormatLog(AstraLogLevel logLevel, const std::string &funcName, const std::string &message) {
     std::ostringstream os;
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    auto tm = *std::localtime(&t);
+
+    // Get microseconds
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()) % 1000000;
+
+    os << std::put_time(&tm, "[%H:%M:%S");
+    os << '.' << std::setw(6) << std::setfill('0') << us.count() << "]"; // Add microseconds
+
     std::string levelString = "[" + AstraLog::LevelToString(logLevel) + "]";
-    os << "" << std::setw(9) << std::left << levelString << funcName << ": " << message;
+    os << "" << std::setfill(' ') << std::setw(9) << std::left << levelString << funcName << ": " << message;
     return os.str();
 }
 
