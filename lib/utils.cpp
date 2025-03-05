@@ -19,7 +19,7 @@
 
 #include "utils.hpp"
 
-#ifdef PLATFORM_MACOS || PLATFORM_LINUX
+#if defined(PLATFORM_MACOS) || defined(PLATFORM_LINUX)
 #include <unistd.h>
 
 std::string MakeTempDirectory()
@@ -40,7 +40,7 @@ uint32_t HostToLE(uint32_t val)
     return htole32(val);
 #endif
 }
-#else PLATFORM_WINDOWS
+#elif defined(PLATFORM_WINDOWS)
 std::string MakeTempDirectory()
 {
     char tempPath[MAX_PATH];
