@@ -109,8 +109,8 @@ public:
             m_images.insert(m_images.end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         }
         if (m_uEnvSupport) {
-            //std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
-            std::string uEnv = "bootcmd=reset";
+            std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
+            //std::string uEnv = "bootcmd=reset";
             std::ofstream uEnvFile(m_tempDir + "/" + m_uEnvFilename);
             if (!uEnvFile) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
@@ -278,10 +278,12 @@ private:
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Interrupt received: size:" << size << endLog;
 
+#if 0
         for (size_t i = 0; i < size; ++i) {
             log << std::hex << static_cast<int>(buf[i]) << " ";
         }
         log << std::dec << endLog;
+#endif
 
         std::string message(reinterpret_cast<char *>(buf), size);
 
@@ -324,6 +326,12 @@ private:
         } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE || event == USBDevice::USB_DEVICE_EVENT_TRANSFER_CANCELED) {
             // device disappeared
             log(ASTRA_LOG_LEVEL_DEBUG) << "Device disconnected: shutting down" << endLog;
+            if (m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
+                m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
+            } else if (m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
+                m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
+            }
+            SendStatus(m_status, 0, "", "Device disconnected");
             m_running.store(false);
             m_deviceEventCV.notify_all();
         }
@@ -448,7 +456,7 @@ private:
             std::unique_lock<std::mutex> lock(m_imageRequestMutex);
             log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
 
-            auto timeout = std::chrono::seconds(5);
+            auto timeout = std::chrono::seconds(10);
 
             bool notified = m_imageRequestCV.wait_for(lock, timeout, [this] {
                 // If true, then set to false in the lambda while the lock is
