@@ -74,7 +74,7 @@ int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void
         log(ASTRA_LOG_LEVEL_DEBUG) << "Hotplug is NOT supported" << endLog;
     }
 
-    m_deviceMonitorThread = std::thread(&USBTransport::DeviceMonitorThread, this);
+    StartDeviceMonitor();
 
     return ret;
 }
