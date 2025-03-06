@@ -221,7 +221,7 @@ void USBDevice::Close()
     ASTRA_LOG;
 
     std::lock_guard<std::mutex> lock(m_closeMutex);
-    if (m_shutdown.exchange(true))
+    if (!m_shutdown.exchange(true))
     {
         m_running.store(false);
         if (m_inputInterruptXfer) {
