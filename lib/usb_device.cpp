@@ -221,8 +221,9 @@ void USBDevice::Close()
     ASTRA_LOG;
 
     std::lock_guard<std::mutex> lock(m_closeMutex);
-    if (m_running.exchange(false))
+    if (m_shutdown.exchange(true))
     {
+        m_running.store(false);
         if (m_inputInterruptXfer) {
             libusb_cancel_transfer(m_inputInterruptXfer);
             libusb_free_transfer(m_inputInterruptXfer);
@@ -336,18 +337,22 @@ void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
         device->m_usbEventCallback(USB_DEVICE_EVENT_INTERRUPT, transfer->buffer, transfer->actual_length);
     } else if (transfer->status == LIBUSB_TRANSFER_NO_DEVICE) {
+        device->m_running.store(false);
         log(ASTRA_LOG_LEVEL_ERROR) << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_NO_DEVICE, nullptr, 0);
     } else if (transfer->status == LIBUSB_TRANSFER_CANCELLED) {
+        device->m_running.store(false);
         log(ASTRA_LOG_LEVEL_DEBUG) << "Input interrupt transfer cancelled" << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_TRANSFER_CANCELED, nullptr, 0);
     } else {
         log(ASTRA_LOG_LEVEL_ERROR) << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << endLog;
     }
 
-    log(ASTRA_LOG_LEVEL_DEBUG) << "Resubmitting input interrupt transfer" << endLog;
-    int ret = libusb_submit_transfer(transfer);
-    if (ret < 0) {
-        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << endLog;
+    if (device->m_running.load()) {
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Resubmitting input interrupt transfer" << endLog;
+        int ret = libusb_submit_transfer(transfer);
+        if (ret < 0) {
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << endLog;
+        }
     }
 }

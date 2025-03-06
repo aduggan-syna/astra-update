@@ -38,7 +38,8 @@ private:
     libusb_config_descriptor *m_config;
     struct libusb_transfer *m_inputInterruptXfer;
     struct libusb_transfer *m_outputInterruptXfer;
-    std::atomic<bool> m_running;
+    std::atomic<bool> m_running{false};
+    std::atomic<bool> m_shutdown{false};
     std::mutex m_closeMutex;
     std::string m_serialNumber;
     std::string m_usbPath;
