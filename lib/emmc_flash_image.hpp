@@ -15,4 +15,5 @@ public:
 
 private:
     void ParseEmmcPartList();
+    const std::string m_resetCommand = "; sleep 1; reset";
 };
