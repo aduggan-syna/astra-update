@@ -26,7 +26,7 @@ USBDevice::USBDevice(libusb_device *device, libusb_context *ctx)
     m_bulkOutEndpoint = 0;
     m_bulkInSize = 0;
     m_bulkOutSize = 0;
-    m_bulkTransferTimeout = 0;
+    m_bulkTransferTimeout = 1000;
 }
 
 USBDevice::~USBDevice()
@@ -262,10 +262,29 @@ int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
 
     log(ASTRA_LOG_LEVEL_DEBUG) << "Reading from USB device" << endLog;
     log(ASTRA_LOG_LEVEL_DEBUG) << "  Bulk In Endpoint: " << static_cast<int>(m_bulkInEndpoint) << endLog;
-    int ret = libusb_bulk_transfer(m_handle, m_bulkInEndpoint, data, size, transferred, m_bulkTransferTimeout);
-    if (ret < 0) {
-        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to read from USB device: " << libusb_error_name(ret) << endLog;
-        return 1;
+    for (;;) {
+        int ret = libusb_bulk_transfer(m_handle, m_bulkInEndpoint, data, size, transferred, m_bulkTransferTimeout);
+        if (ret < 0) {
+            if (ret == LIBUSB_ERROR_TIMEOUT) {
+                log(ASTRA_LOG_LEVEL_ERROR) << "USB transfer timed out" << endLog;
+            } else if (ret == LIBUSB_ERROR_NO_DEVICE) {
+                log(ASTRA_LOG_LEVEL_ERROR) << "USB device is no longer available" << endLog;
+                m_running.store(false);
+            } else if (ret == LIBUSB_ERROR_PIPE) {
+                log(ASTRA_LOG_LEVEL_WARNING) << "Endpoint halted, clearing halt" << endLog;
+                ret = libusb_clear_halt(m_handle, m_bulkOutEndpoint);
+                if (ret < 0) {
+                    log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
+                } else {
+                    log(ASTRA_LOG_LEVEL_INFO) << "Halt cleared, retrying transfer" << endLog;
+                    continue;
+                }
+            } else {
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write to USB device: " << libusb_error_name(ret) << endLog;
+            }
+            return -1;
+        }
+        break;
     }
 
     return 0;
@@ -288,10 +307,30 @@ int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
     }
     log << std::dec << endLog;
 
-    int ret = libusb_bulk_transfer(m_handle, m_bulkOutEndpoint, const_cast<uint8_t*>(data), size, transferred, m_bulkTransferTimeout);
-    if (ret < 0) {
-        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write to USB device: " << libusb_error_name(ret) << endLog;
-        return 1;
+    for (;;) {
+        int ret = libusb_bulk_transfer(m_handle, m_bulkOutEndpoint, const_cast<uint8_t*>(data), size, transferred, m_bulkTransferTimeout);
+        if (ret < 0) {
+            if (ret == LIBUSB_ERROR_TIMEOUT) {
+                log(ASTRA_LOG_LEVEL_ERROR) << "USB transfer timed out" << endLog;
+            } else if (ret == LIBUSB_ERROR_NO_DEVICE) {
+                log(ASTRA_LOG_LEVEL_ERROR) << "USB device is no longer available" << endLog;
+                m_running.store(false);
+                return -1;
+            } else if (ret == LIBUSB_ERROR_PIPE) {
+                log(ASTRA_LOG_LEVEL_WARNING) << "Endpoint halted, clearing halt" << endLog;
+                ret = libusb_clear_halt(m_handle, m_bulkOutEndpoint);
+                if (ret < 0) {
+                    log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
+                } else {
+                    log(ASTRA_LOG_LEVEL_INFO) << "Halt cleared, retrying transfer" << endLog;
+                    continue;
+                }
+            } else {
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write to USB device: " << libusb_error_name(ret) << endLog;
+            }
+            return -1;
+        }
+        break;
     }
 
     return 0;
