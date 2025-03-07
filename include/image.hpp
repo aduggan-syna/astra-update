@@ -4,6 +4,19 @@
 #include <string>
 #include <filesystem>
 
+enum AstraSecureBootVersion {
+    ASTRA_SECURE_BOOT_V2,
+    ASTRA_SECURE_BOOT_V3,
+};
+
+
+enum AstraMemoryLayout {
+    ASTRA_MEMORY_LAYOUT_1GB = 0,
+    ASTRA_MEMORY_LAYOUT_2GB = 1,
+    ASTRA_MEMORY_LAYOUT_3GB = 2,
+    ASTRA_MEMORY_LAYOUT_4GB = 3,
+};
+
 class Image
 {
 public:

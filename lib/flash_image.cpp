@@ -5,11 +5,10 @@
 #include "astra_log.hpp"
 
 #include "emmc_flash_image.hpp"
+#include "spi_flash_image.hpp"
 
 const std::string FlashImageTypeToString(FlashImageType type)
 {
-    ASTRA_LOG;
-
     std::string str = "unknown";
 
     switch (type) {
@@ -28,8 +27,6 @@ const std::string FlashImageTypeToString(FlashImageType type)
 
 FlashImageType StringToFlashImageType(const std::string& str)
 {
-    ASTRA_LOG;
-
     if (str == "spi") {
         return FLASH_IMAGE_TYPE_SPI;
     } else if (str == "nand") {
@@ -41,15 +38,8 @@ FlashImageType StringToFlashImageType(const std::string& str)
     }
 }
 
-std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath, std::string manifest)
+std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath, std::map<std::string, std::string> &config, std::string manifest)
 {
-    ASTRA_LOG;
-
-    FlashImageType flashImageType;
-    std::string bootFirmware;
-    std::string chipName;
-    std::string boardName;
-
     if (manifest == "") {
         manifest = imagePath + "/manifest.yaml";
     }
@@ -57,26 +47,76 @@ std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
     try {
         YAML::Node manifestNode = YAML::LoadFile(manifest);
 
-        bootFirmware = manifestNode["boot_firmware"].as<std::string>();
-        chipName = manifestNode["chip"].as<std::string>();
-        boardName = manifestNode["board"].as<std::string>();
-        flashImageType = StringToFlashImageType(manifestNode["image_type"].as<std::string>());
+        // If the image has a manifest file, but options were supplied on the command line,
+        // then have the command line options take precedence.
+        for (YAML::const_iterator it = manifestNode.begin(); it != manifestNode.end(); ++it) {
+            if (config.find(it->first.as<std::string>()) == config.end()) {
+                config[it->first.as<std::string>()] = it->second.as<std::string>();
+            }
+        }
     }
     catch (const YAML::BadFile& e) {
-        log(ASTRA_LOG_LEVEL_ERROR) << "Unable to open the manifest file: " << e.what() << endLog;
-        throw std::invalid_argument("Unknown file");
+        e; // No manifest file, but we might have command line values
     } catch (const std::exception& e) {
-        log(ASTRA_LOG_LEVEL_ERROR) << e.what() << endLog;
         throw std::invalid_argument("Invalid Manifest");
+    }
+
+    std::string bootFirmware = config["boot_firmware"];
+    std::string chipName = config["chip"];
+    std::transform(chipName.begin(), chipName.end(), chipName.begin(), ::tolower);
+
+    std::string boardName = config["board"];
+    std::transform(boardName.begin(), boardName.end(), boardName.begin(), ::tolower);
+
+    FlashImageType flashImageType = FLASH_IMAGE_TYPE_UNKNOWN;
+    if (config.find("image_type") != config.end()) {
+        flashImageType = StringToFlashImageType(config["image_type"]);
+    }
+
+    std::string secureBoot = config["secure_boot"];
+    std::string memoryLayoutString = config["memory_layout"];
+
+    std::transform(secureBoot.begin(), secureBoot.end(), secureBoot.begin(), ::tolower);
+    AstraSecureBootVersion secureBootVersion = secureBoot == "gen2" ? ASTRA_SECURE_BOOT_V2 : ASTRA_SECURE_BOOT_V3;
+
+    AstraMemoryLayout memoryLayout = ASTRA_MEMORY_LAYOUT_2GB;
+    if (memoryLayoutString.empty()) {
+        // Set default memory layouts based on the chip
+        if (chipName == "sl1680") {
+            memoryLayout = ASTRA_MEMORY_LAYOUT_4GB;
+        }
+    } else {
+        std::transform(memoryLayoutString.begin(), memoryLayoutString.end(), memoryLayoutString.begin(), ::tolower);
+
+        if (memoryLayoutString == "1gb") {
+            memoryLayout = ASTRA_MEMORY_LAYOUT_1GB;
+        } else if (memoryLayoutString == "2gb") {
+            memoryLayout = ASTRA_MEMORY_LAYOUT_2GB;
+        } else if (memoryLayoutString == "3gb") {
+            memoryLayout = ASTRA_MEMORY_LAYOUT_3GB;
+        } else if (memoryLayoutString == "4gb") {
+            memoryLayout = ASTRA_MEMORY_LAYOUT_4GB;
+        } else {
+            throw std::invalid_argument("Invalid Memory Layout");
+        }
+    }
+
+    if (flashImageType == FLASH_IMAGE_TYPE_UNKNOWN) {
+        if (std::filesystem::exists(imagePath) && std::filesystem::is_directory(imagePath)
+          && std::filesystem::exists(imagePath + "/emmc_part_list"))
+        {
+            // Image matches the structure of an eMMC image
+            flashImageType = FLASH_IMAGE_TYPE_EMMC;
+        }
     }
 
     switch (flashImageType) {
         case FLASH_IMAGE_TYPE_SPI:
-            //return std::make_unique<SpiFlashImage>();
+            return std::make_unique<SpiFlashImage>(imagePath, bootFirmware, chipName, boardName, secureBootVersion, memoryLayout, config);
         case FLASH_IMAGE_TYPE_NAND:
-            //return std::make_unique<NandFlashImage>();
+            throw std::invalid_argument("NAND FlashImage not supported");
         case FLASH_IMAGE_TYPE_EMMC:
-            return std::make_shared<EmmcFlashImage>(imagePath, bootFirmware, chipName, boardName);
+            return std::make_shared<EmmcFlashImage>(imagePath, bootFirmware, chipName, boardName, secureBootVersion, memoryLayout, config);
         default:
             throw std::invalid_argument("Unknown FlashImageType");
     }

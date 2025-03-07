@@ -18,11 +18,28 @@ int AstraBootFirmware::LoadManifest(std::string manifestPath)
         m_id = manifest["id"].as<std::string>();
         m_chipName = manifest["chip"].as<std::string>();
         m_boardName = manifest["board"].as<std::string>();
-        m_secureBootVersion = manifest["secure_boot"].as<std::string>() == "gen2" ? ASTRA_SECURE_BOOT_V2 : ASTRA_SECURE_BOOT_V3;
         m_ubootConsole = manifest["console"].as<std::string>() == "uart" ? ASTRA_UBOOT_CONSOLE_UART : ASTRA_UBOOT_CONSOLE_USB;
         m_uEnvSupport = manifest["uenv_support"].as<bool>();
         m_vendorId = std::stoi(manifest["vendor_id"].as<std::string>(), nullptr, 16);
         m_productId = std::stoi(manifest["product_id"].as<std::string>(), nullptr, 16);
+
+        std::string secureBootString = manifest["secure_boot"].as<std::string>();
+        std::transform(secureBootString.begin(), secureBootString.end(), secureBootString.begin(), ::tolower);
+        m_secureBootVersion = secureBootString == "gen2" ? ASTRA_SECURE_BOOT_V2 : ASTRA_SECURE_BOOT_V3;
+
+        std::string memoryLayoutString = manifest["memory_layout"].as<std::string>();
+        std::transform(memoryLayoutString.begin(), memoryLayoutString.end(), memoryLayoutString.begin(), ::tolower);
+        if (memoryLayoutString == "1gb") {
+            m_memoryLayout = ASTRA_MEMORY_LAYOUT_1GB;
+        } else if (memoryLayoutString == "2gb") {
+            m_memoryLayout = ASTRA_MEMORY_LAYOUT_2GB;
+        } else if (memoryLayoutString == "3gb") {
+            m_memoryLayout = ASTRA_MEMORY_LAYOUT_3GB;
+        } else if (memoryLayoutString == "4gb") {
+            m_memoryLayout = ASTRA_MEMORY_LAYOUT_4GB;
+        } else {
+            throw std::runtime_error("Invalid memory layout");
+        }
 
         log(ASTRA_LOG_LEVEL_INFO) << "Loaded boot firmware: " << m_chipName << " " << m_boardName << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "ID: " << m_id << endLog;

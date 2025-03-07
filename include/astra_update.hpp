@@ -11,6 +11,8 @@
 
 enum AstraUpdateStatus {
     ASTRA_UPDATE_STATUS_START,
+    ASTRA_UPDATE_STATUS_INFO,
+    ASTRA_UPDATE_STATUS_FAILURE,
     ASTRA_UPDATE_STATUS_SHUTDOWN,
 };
 
@@ -26,7 +28,7 @@ public:
     );
     ~AstraUpdate();
 
-    int StartDeviceSearch(std::string bootFirmwareId);
+    int Init();
 
     std::shared_ptr<AstraBootFirmware> GetBootFirmware();
 

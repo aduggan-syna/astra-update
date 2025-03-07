@@ -6,11 +6,6 @@
 
 #include "image.hpp"
 
-enum AstraSecureBootVersion {
-    ASTRA_SECURE_BOOT_V2,
-    ASTRA_SECURE_BOOT_V3,
-};
-
 enum AstraUbootConsole {
     ASTRA_UBOOT_CONSOLE_UART,
     ASTRA_UBOOT_CONSOLE_USB,
@@ -31,9 +26,9 @@ public:
     std::string GetBoardName() const { return m_boardName; }
     std::string GetID() const { return m_id; }
     bool GetUEnvSupport() const { return m_uEnvSupport; }
-    enum AstraSecureBootVersion GetSecureBootVersion() const { return m_secureBootVersion; }
-    enum AstraUbootConsole GetUbootConsole() const { return m_ubootConsole; }
-
+    AstraSecureBootVersion GetSecureBootVersion() const { return m_secureBootVersion; }
+    AstraUbootConsole GetUbootConsole() const { return m_ubootConsole; }
+    AstraMemoryLayout GetMemoryLayout() const { return m_memoryLayout; }
     const std::vector<Image>& GetImages() const { return m_images; }
 
     const std::string GetFinalBootImage();
@@ -46,10 +41,12 @@ private:
     std::string m_chipName;
     std::string m_boardName;
     bool m_uEnvSupport;
-    enum AstraSecureBootVersion m_secureBootVersion;
-    enum AstraUbootConsole m_ubootConsole;
+    AstraSecureBootVersion m_secureBootVersion;
+    AstraUbootConsole m_ubootConsole;
+    AstraMemoryLayout m_memoryLayout;
     uint16_t m_vendorId;
     uint16_t m_productId;
+
 
     int LoadManifest(std::string manifestPath);
 };

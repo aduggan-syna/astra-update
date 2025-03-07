@@ -16,6 +16,9 @@ public:
     std::vector<std::tuple<uint16_t, uint16_t>> GetDeviceIDs() const;
     AstraBootFirmware &GetFirmware(std::string id) const;
 
+    std::vector<std::shared_ptr<AstraBootFirmware>> GetFirmwaresForChip(std::string chipName,
+        AstraSecureBootVersion secureBoot, AstraMemoryLayout memoryLayout, std::string boardName) const;
+
 private:
     std::string m_path;
     std::vector<std::shared_ptr<AstraBootFirmware>> m_firmwares;

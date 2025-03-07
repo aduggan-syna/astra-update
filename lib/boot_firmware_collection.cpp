@@ -58,6 +58,28 @@ AstraBootFirmware &BootFirmwareCollection::GetFirmware(std::string id) const
     throw std::runtime_error("Firmware not found");
 }
 
+std::vector<std::shared_ptr<AstraBootFirmware>> BootFirmwareCollection::GetFirmwaresForChip(std::string chipName,
+    AstraSecureBootVersion secureBoot, AstraMemoryLayout memoryLayout, std::string boardName) const
+{
+    ASTRA_LOG;
+
+    std::vector<std::shared_ptr<AstraBootFirmware>> firmwares;
+
+    for (const auto& firmware : m_firmwares) {
+        if (firmware->GetChipName() == chipName && firmware->GetSecureBootVersion() == secureBoot
+          && firmware->GetMemoryLayout() == memoryLayout)
+        {
+            if (boardName.empty()) {
+                firmwares.push_back(firmware);
+            } else if (firmware->GetBoardName() == boardName) {
+                firmwares.push_back(firmware);
+            }
+        }
+    }
+
+    return firmwares;
+}
+
 BootFirmwareCollection::~BootFirmwareCollection()
 {
     ASTRA_LOG;

@@ -79,15 +79,20 @@ int main(int argc, char* argv[])
     cxxopts::Options options("AstraUpdate", "Astra Update Utility");
 
     options.add_options()
-        ("b,boot-firmware", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("/home/aduggan/astra-usbboot-firmware"))
+        ("B,boot-firmware-collection", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("astra-usbboot-firmware"))
         ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
-        ("d,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
-        ("c,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
+        ("D,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
+        ("C,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage")
-        ("t,temp-dir", "Temporary directory", cxxopts::value<std::string>()->default_value(""))
-        ("flash", "Flash image path", cxxopts::value<std::string>());
-
-    options.parse_positional({"flash"});
+        ("T,temp-dir", "Temporary directory", cxxopts::value<std::string>()->default_value(""))
+        ("f,flash", "Flash image path", cxxopts::value<std::string>()->default_value("eMMCimg"))
+        ("b,board", "Board name", cxxopts::value<std::string>())
+        ("c,chip", "Chip name", cxxopts::value<std::string>())
+        ("M,manifest", "Manifest file path", cxxopts::value<std::string>())
+        ("i,boot-firmware-id", "Boot firmware ID", cxxopts::value<std::string>())
+        ("t,image-type", "Image type", cxxopts::value<std::string>())
+        ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("gen3"))
+        ("m,memory-layout", "Memory layout", cxxopts::value<std::string>());
 
     auto result = options.parse(argc, argv);
 
@@ -96,21 +101,50 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (!result.count("flash")) {
-        std::cerr << "Error: Flash image path is required." << std::endl;
-        std::cerr << options.help() << std::endl;
-        return 1;
-    }
-
     std::string flashImagePath = result["flash"].as<std::string>();
-    std::string bootFirmwarePath = result["boot-firmware"].as<std::string>();
+    std::string bootFirmwarePath = result["boot-firmware-collection"].as<std::string>();
     std::string logFilePath = result["log"].as<std::string>();
     std::string tempDir = result["temp-dir"].as<std::string>();
     bool debug = result["debug"].as<bool>();
     bool continuous = result["continuous"].as<bool>();
     AstraLogLevel logLevel = debug ?  ASTRA_LOG_LEVEL_DEBUG : ASTRA_LOG_LEVEL_INFO;
 
-    std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory(flashImagePath);
+    std::string manifest = "";
+    if (result.count("manifest")) {
+        manifest = result["manifest"].as<std::string>();
+    }
+
+    std::map<std::string, std::string> config;
+    if (result.count("board")) {
+        config["board"] = result["board"].as<std::string>();
+    }
+    if (result.count("chip")) {
+        config["chip"] = result["chip"].as<std::string>();
+    }
+    if (result.count("image-type")) {
+        config["image_type"] = result["image-type"].as<std::string>();
+    }
+    if (result.count("boot-firmware-id")) {
+        config["boot_firmware"] = result["boot-firmware-id"].as<std::string>();
+    }
+    if (result.count("secure-boot")) {
+        config["secure_boot"] = result["secure-boot"].as<std::string>();
+    }
+    if (result.count("memory-layout")) {
+        config["memory_layout"] = result["memory-layout"].as<std::string>();
+    }
+
+    // DynamicProgress to manage multiple progress bars
+    indicators::DynamicProgress<indicators::ProgressBar> dynamicProgress;
+    std::unordered_map<DeviceImageKey, size_t, DeviceImageKeyHash> progressBars;
+
+    dynamicProgress.set_option(indicators::option::HideBarWhenComplete{false});
+
+    std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory(flashImagePath, config, manifest);
+    if (flashImage.get() == nullptr) {
+        std::cerr << "Failed to create flash image" << std::endl;
+        return 1;
+    }
 
     int ret = flashImage->Load();
     if (ret < 0) {
@@ -120,17 +154,11 @@ int main(int argc, char* argv[])
 
     AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath, tempDir);
 
-    ret = update.StartDeviceSearch(flashImage->GetBootFirmwareId());
+    ret = update.Init();
     if (ret < 0) {
-        std::cerr << "Error initializing Astra Update" << std::endl;
+        std::cerr << "Error Starting Astra Update" << std::endl;
         return 1;
     }
-
-    // DynamicProgress to manage multiple progress bars
-    indicators::DynamicProgress<indicators::ProgressBar> dynamicProgress;
-    std::unordered_map<DeviceImageKey, size_t, DeviceImageKeyHash> progressBars;
-
-    dynamicProgress.set_option(indicators::option::HideBarWhenComplete{false});
 
     while (true) {
         std::unique_lock<std::mutex> lock(updateResponsesMutex);
