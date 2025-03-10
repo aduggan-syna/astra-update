@@ -316,6 +316,7 @@ int USBDevice::Write(uint8_t *data, size_t size, int *transferred)
             m_writeComplete.store(false);
             return true;
         }
+        return false;
     });
 
     *transferred = m_actualBytesWritten;
