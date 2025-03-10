@@ -16,6 +16,5 @@ public:
     }
     virtual void Close() = 0;
 
-    virtual int Read(uint8_t *data, size_t size, int *transferred) = 0;
-    virtual int Write(const uint8_t *data, size_t size, int *transferred) = 0;
+    virtual int Write(uint8_t *data, size_t size, int *transferred) = 0;
 };

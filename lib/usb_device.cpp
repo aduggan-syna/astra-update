@@ -196,8 +196,14 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
     m_interruptInBuffer = new uint8_t[m_interruptInSize];
     m_interruptOutBuffer = new uint8_t[m_interruptOutSize];
 
+    m_bulkWriteXfer = libusb_alloc_transfer(0);
+    if (!m_bulkWriteXfer) {
+        log(ASTRA_LOG_LEVEL_ERROR) << "Failed to allocate bulk out transfer" << endLog;
+        return -1;
+    }
+
     libusb_fill_interrupt_transfer(m_inputInterruptXfer, m_handle, m_interruptInEndpoint,
-        m_interruptInBuffer, m_interruptInSize, HandleInputInterruptTransfer, this, 0);
+        m_interruptInBuffer, m_interruptInSize, HandleTransfer, this, 0);
 
     return 0;
 }
@@ -236,6 +242,12 @@ void USBDevice::Close()
             m_outputInterruptXfer = nullptr;
         }
 
+        if (m_bulkWriteXfer) {
+            libusb_cancel_transfer(m_bulkWriteXfer);
+            libusb_free_transfer(m_bulkWriteXfer);
+            m_bulkWriteXfer = nullptr;
+        }
+
         delete[] m_interruptInBuffer;
         m_interruptInBuffer = nullptr;
 
@@ -252,7 +264,7 @@ void USBDevice::Close()
     }
 }
 
-int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
+int USBDevice::Write(uint8_t *data, size_t size, int *transferred)
 {
     ASTRA_LOG;
 
@@ -260,43 +272,7 @@ int USBDevice::Read(uint8_t *data, size_t size, int *transferred)
         return -1;
     }
 
-    log(ASTRA_LOG_LEVEL_DEBUG) << "Reading from USB device" << endLog;
-    log(ASTRA_LOG_LEVEL_DEBUG) << "  Bulk In Endpoint: " << static_cast<int>(m_bulkInEndpoint) << endLog;
-    for (;;) {
-        int ret = libusb_bulk_transfer(m_handle, m_bulkInEndpoint, data, size, transferred, m_bulkTransferTimeout);
-        if (ret < 0) {
-            if (ret == LIBUSB_ERROR_TIMEOUT) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "USB transfer timed out" << endLog;
-            } else if (ret == LIBUSB_ERROR_NO_DEVICE) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "USB device is no longer available" << endLog;
-                m_running.store(false);
-            } else if (ret == LIBUSB_ERROR_PIPE) {
-                log(ASTRA_LOG_LEVEL_WARNING) << "Endpoint halted, clearing halt" << endLog;
-                ret = libusb_clear_halt(m_handle, m_bulkOutEndpoint);
-                if (ret < 0) {
-                    log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
-                } else {
-                    log(ASTRA_LOG_LEVEL_INFO) << "Halt cleared, retrying transfer" << endLog;
-                    continue;
-                }
-            } else {
-                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write to USB device: " << libusb_error_name(ret) << endLog;
-            }
-            return -1;
-        }
-        break;
-    }
-
-    return 0;
-}
-
-int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
-{
-    ASTRA_LOG;
-
-    if (!m_running.load()) {
-        return -1;
-    }
+    m_actualBytesWritten = 0;
 
     log(ASTRA_LOG_LEVEL_DEBUG) << "Writing to USB device" << endLog;
     log(ASTRA_LOG_LEVEL_DEBUG) << "  Bulk Out Endpoint: " << static_cast<int>(m_bulkOutEndpoint) << endLog;
@@ -307,15 +283,16 @@ int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
     }
     log << std::dec << endLog;
 
+    libusb_fill_bulk_transfer(m_bulkWriteXfer, m_handle, m_bulkOutEndpoint, data, size, HandleTransfer, this, m_bulkTransferTimeout);
+
     for (;;) {
-        int ret = libusb_bulk_transfer(m_handle, m_bulkOutEndpoint, const_cast<uint8_t*>(data), size, transferred, m_bulkTransferTimeout);
+        int ret = libusb_submit_transfer(m_bulkWriteXfer);
         if (ret < 0) {
             if (ret == LIBUSB_ERROR_TIMEOUT) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "USB transfer timed out" << endLog;
             } else if (ret == LIBUSB_ERROR_NO_DEVICE) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "USB device is no longer available" << endLog;
                 m_running.store(false);
-                return -1;
             } else if (ret == LIBUSB_ERROR_PIPE) {
                 log(ASTRA_LOG_LEVEL_WARNING) << "Endpoint halted, clearing halt" << endLog;
                 ret = libusb_clear_halt(m_handle, m_bulkOutEndpoint);
@@ -325,13 +302,23 @@ int USBDevice::Write(const uint8_t *data, size_t size, int *transferred)
                     log(ASTRA_LOG_LEVEL_INFO) << "Halt cleared, retrying transfer" << endLog;
                     continue;
                 }
-            } else {
+           } else {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write to USB device: " << libusb_error_name(ret) << endLog;
             }
             return -1;
         }
-        break;
+       break;
     }
+
+    std::unique_lock<std::mutex> lock(m_writeCompleteMutex);
+    m_writeCompleteCV.wait(lock, [this] {
+        if (m_writeComplete) {
+            m_writeComplete = false;
+            return true;
+        }
+    });
+
+    *transferred = m_actualBytesWritten;
 
     return 0;
 }
@@ -367,31 +354,47 @@ int USBDevice::WriteInterruptData(const uint8_t *data, size_t size)
     return 0;
 }
 
-void USBDevice::HandleInputInterruptTransfer(struct libusb_transfer *transfer)
+void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
 {
     ASTRA_LOG;
 
     USBDevice *device = static_cast<USBDevice*>(transfer->user_data);
+
+    bool resubmit = false;
     
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
-        device->m_usbEventCallback(USB_DEVICE_EVENT_INTERRUPT, transfer->buffer, transfer->actual_length);
+        if (transfer->type == LIBUSB_TRANSFER_TYPE_BULK) {
+            if (transfer->endpoint == device->m_bulkOutEndpoint) {
+                {
+                    std::lock_guard<std::mutex> lock(device->m_writeCompleteMutex);
+                    device->m_writeComplete = true;
+                }
+                device->m_actualBytesWritten = transfer->actual_length;
+                device->m_writeCompleteCV.notify_one();
+            }
+        } else if (transfer->type == LIBUSB_TRANSFER_TYPE_INTERRUPT) {
+            if (transfer->endpoint == device->m_interruptInEndpoint) {
+                device->m_usbEventCallback(USB_DEVICE_EVENT_INTERRUPT, transfer->buffer, transfer->actual_length);
+            }
+            resubmit = true;
+        }
     } else if (transfer->status == LIBUSB_TRANSFER_NO_DEVICE) {
         device->m_running.store(false);
         log(ASTRA_LOG_LEVEL_ERROR) << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_NO_DEVICE, nullptr, 0);
     } else if (transfer->status == LIBUSB_TRANSFER_CANCELLED) {
         device->m_running.store(false);
-        log(ASTRA_LOG_LEVEL_DEBUG) << "Input interrupt transfer cancelled" << endLog;
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Input transfer cancelled" << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_TRANSFER_CANCELED, nullptr, 0);
     } else {
-        log(ASTRA_LOG_LEVEL_ERROR) << "Input interrupt transfer failed: " << libusb_error_name(transfer->status) << endLog;
+        log(ASTRA_LOG_LEVEL_ERROR) << "Transfer failed: " << libusb_error_name(transfer->status) << endLog;
     }
 
-    if (device->m_running.load()) {
-        log(ASTRA_LOG_LEVEL_DEBUG) << "Resubmitting input interrupt transfer" << endLog;
+    if (resubmit && device->m_running.load()) {
+        log(ASTRA_LOG_LEVEL_DEBUG) << "Resubmitting transfer" << endLog;
         int ret = libusb_submit_transfer(transfer);
         if (ret < 0) {
-            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit input interrupt transfer: " << libusb_error_name(ret) << endLog;
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit transfer: " << libusb_error_name(ret) << endLog;
         }
     }
 }

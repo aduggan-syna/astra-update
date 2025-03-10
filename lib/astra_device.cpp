@@ -85,9 +85,11 @@ public:
         m_status = ASTRA_DEVICE_STATUS_BOOT_START;
         m_imageRequestThread= std::thread(std::bind(&AstraDeviceImpl::ImageRequestThread, this));
 
-        log(ASTRA_LOG_LEVEL_DEBUG) << "Waiting for imageRequest thread to be ready" << endLog;
-        std::unique_lock<std::mutex> lock(m_imageRequestThreadReadyMutex);
-        m_imageRequestThreadReadyCV.wait(lock, [this] { return m_imageRequestThreadReady; });
+        {
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Waiting for imageRequest thread to be ready" << endLog;
+            std::unique_lock<std::mutex> lock(m_imageRequestThreadReadyMutex);
+            m_imageRequestThreadReadyCV.wait(lock, [this] { return m_imageRequestThreadReady; });
+        }
 
         ret = m_usbDevice->EnableInterrupts();
         if (ret < 0) {
@@ -454,20 +456,24 @@ private:
         m_imageRequestThreadReadyCV.notify_all();
 
         while (true) {
-            std::unique_lock<std::mutex> lock(m_imageRequestMutex);
-            log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
+            bool notified = false;
 
-            auto timeout = std::chrono::seconds(10);
+            {
+                std::unique_lock<std::mutex> lock(m_imageRequestMutex);
+                log(ASTRA_LOG_LEVEL_DEBUG) << "before  m_imageRequestCV.wait()" << endLog;
 
-            bool notified = m_imageRequestCV.wait_for(lock, timeout, [this] {
-                // If true, then set to false in the lambda while the lock is
-                // held. If no longer running then return true to exit the loop.
-                bool previousValue = m_imageRequestReady;
-                if (m_imageRequestReady) {
-                    m_imageRequestReady = false;
-                }
-                return previousValue  || !m_running.load();
-            });
+                auto timeout = std::chrono::seconds(10);
+
+                notified = m_imageRequestCV.wait_for(lock, timeout, [this] {
+                    // If true, then set to false in the lambda while the lock is
+                    // held. If no longer running then return true to exit the loop.
+                    bool previousValue = m_imageRequestReady;
+                    if (m_imageRequestReady) {
+                        m_imageRequestReady = false;
+                    }
+                    return previousValue  || !m_running.load();
+                });
+            }
 
             log(ASTRA_LOG_LEVEL_DEBUG) << "after m_imageRequestCV.wait()" << endLog;
             if (!m_running.load()) {

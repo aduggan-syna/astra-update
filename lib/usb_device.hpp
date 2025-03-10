@@ -4,6 +4,8 @@
 #include <thread>
 #include <atomic>
 #include <functional>
+#include <condition_variable>
+#include <mutex>
 #include <libusb-1.0/libusb.h>
 #include <mutex>
 
@@ -26,8 +28,7 @@ public:
 
     std::string &GetUSBPath() { return m_usbPath; }
 
-    int Read(uint8_t *data, size_t size, int *transferred) override;
-    int Write(const uint8_t *data, size_t size, int *transferred) override;
+    int Write(uint8_t *data, size_t size, int *transferred) override;
 
     int WriteInterruptData(const uint8_t *data, size_t size);
 
@@ -38,6 +39,8 @@ private:
     libusb_config_descriptor *m_config;
     struct libusb_transfer *m_inputInterruptXfer;
     struct libusb_transfer *m_outputInterruptXfer;
+    struct libusb_transfer *m_bulkWriteXfer;
+    int m_actualBytesWritten;
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_shutdown{false};
     std::mutex m_closeMutex;
@@ -57,9 +60,13 @@ private:
     size_t m_bulkInSize;
     size_t m_bulkOutSize;
 
+    std::mutex m_writeCompleteMutex;
+    std::condition_variable m_writeCompleteCV;
+    bool m_writeComplete = false;
+
     int m_bulkTransferTimeout;
 
     std::function<void(USBEvent event, uint8_t *buf, size_t size)> m_usbEventCallback;
 
-    static void LIBUSB_CALL HandleInputInterruptTransfer(struct libusb_transfer *transfer);
+    static void LIBUSB_CALL HandleTransfer(struct libusb_transfer *transfer);
 };
