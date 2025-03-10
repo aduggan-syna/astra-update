@@ -302,12 +302,12 @@ int USBDevice::Write(uint8_t *data, size_t size, int *transferred)
                     log(ASTRA_LOG_LEVEL_INFO) << "Halt cleared, retrying transfer" << endLog;
                     continue;
                 }
-           } else {
+            } else {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to write to USB device: " << libusb_error_name(ret) << endLog;
             }
             return -1;
         }
-       break;
+        break;
     }
 
     std::unique_lock<std::mutex> lock(m_writeCompleteMutex);
@@ -319,6 +319,8 @@ int USBDevice::Write(uint8_t *data, size_t size, int *transferred)
     });
 
     *transferred = m_actualBytesWritten;
+
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Write Complete: bytes written: " << m_actualBytesWritten << endLog;
 
     return 0;
 }
@@ -361,7 +363,7 @@ void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
     USBDevice *device = static_cast<USBDevice*>(transfer->user_data);
 
     bool resubmit = false;
-    
+
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
         if (transfer->type == LIBUSB_TRANSFER_TYPE_BULK) {
             if (transfer->endpoint == device->m_bulkOutEndpoint) {
@@ -383,6 +385,15 @@ void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
         device->m_running.store(false);
         log(ASTRA_LOG_LEVEL_DEBUG) << "Input transfer cancelled" << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_TRANSFER_CANCELED, nullptr, 0);
+    } else if (transfer->status == LIBUSB_TRANSFER_STALL) {
+        log(ASTRA_LOG_LEVEL_WARNING) << "Endpoint stalled, clearing halt" << endLog;
+        int ret = libusb_clear_halt(device->m_handle, transfer->endpoint);
+        if (ret < 0) {
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
+        } else {
+            log(ASTRA_LOG_LEVEL_INFO) << "Halt cleared, retrying transfer" << endLog;
+            resubmit = true;
+        }
     } else {
         log(ASTRA_LOG_LEVEL_ERROR) << "Transfer failed: " << libusb_error_name(transfer->status) << endLog;
     }
