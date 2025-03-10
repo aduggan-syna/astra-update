@@ -74,7 +74,7 @@ void UpdateProgressBars(DeviceResponse &deviceResponse,
     }
 }
 
-void UpdateDebugProgress(DeviceResponse &deviceResponse)
+void UpdateSimpleProgress(DeviceResponse &deviceResponse)
 {
     std::cout << "Device: " << deviceResponse.m_deviceName
                 << " Image: " << deviceResponse.m_imageName
@@ -100,7 +100,8 @@ int main(int argc, char* argv[])
         ("t,image-type", "Image type", cxxopts::value<std::string>())
         ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("gen3"))
         ("m,memory-layout", "Memory layout", cxxopts::value<std::string>())
-        ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"));
+        ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"))
+        ("s,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"));
 
     auto result = options.parse(argc, argv);
 
@@ -117,6 +118,7 @@ int main(int argc, char* argv[])
     bool continuous = result["continuous"].as<bool>();
     AstraLogLevel logLevel = debug ?  ASTRA_LOG_LEVEL_DEBUG : ASTRA_LOG_LEVEL_INFO;
     bool usbDebug = result["usb-debug"].as<bool>();
+    bool simpleProgress = result["simple-progress"].as<bool>();
 
     std::string manifest = "";
     if (result.count("manifest")) {
@@ -205,8 +207,8 @@ int main(int argc, char* argv[])
                 deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS ||
                 deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE)
             {
-                if (usbDebug) {
-                    UpdateDebugProgress(deviceResponse);
+                if (simpleProgress) {
+                    UpdateSimpleProgress(deviceResponse);
                 } else {
                     UpdateProgressBars(deviceResponse, dynamicProgress, progressBars);
                 }
