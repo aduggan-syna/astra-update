@@ -378,10 +378,11 @@ private:
 
         SendStatus(ASTRA_DEVICE_STATUS_IMAGE_SEND_START, 0, image->GetName());
 
+        const int imageHeaderSize = sizeof(uint32_t) * 2;
         uint32_t imageSizeLE = HostToLE(image->GetSize());
+        std::memset(m_imageBuffer, 0, imageHeaderSize);
         std::memcpy(m_imageBuffer, &imageSizeLE, sizeof(imageSizeLE));
 
-        const int imageHeaderSize = sizeof(uint32_t) * 2;
         const int totalTransferSize = image->GetSize() + imageHeaderSize;
 
         // Send the image header
