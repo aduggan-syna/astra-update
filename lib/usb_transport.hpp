@@ -13,7 +13,7 @@
 
 class USBTransport {
 public:
-    USBTransport() : m_ctx{nullptr}, m_running{false}
+    USBTransport(bool usbDebug) : m_usbDebug{usbDebug}, m_ctx{nullptr}, m_running{false}
     {}
     virtual ~USBTransport();
 
@@ -23,6 +23,7 @@ public:
     void StartDeviceMonitor();
 
 protected:
+    bool m_usbDebug;
     libusb_context *m_ctx;
     libusb_hotplug_callback_handle m_callbackHandle;
     std::function<void(std::unique_ptr<USBDevice>)> m_deviceAddedCallback;

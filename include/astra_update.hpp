@@ -24,7 +24,8 @@ public:
         bool updateContinuously = false,
         AstraLogLevel minLogLevel = ASTRA_LOG_LEVEL_WARNING,
         const std::string &logPath = "",
-        const std::string &tempDir = ""
+        const std::string &tempDir = "",
+        bool usbDebug = false
     );
     ~AstraUpdate();
 

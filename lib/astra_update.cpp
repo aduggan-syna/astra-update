@@ -24,9 +24,9 @@ public:
         std::function<void(AstraUpdateResponse)> responseCallback,
         bool updateContinuously,
         AstraLogLevel minLogLevel, const std::string &logPath,
-        const std::string &tempDir)
+        const std::string &tempDir, bool usbDebug)
         : m_flashImage(flashImage), m_bootFirmwarePath{bootFirmwarePath},
-        m_responseCallback{responseCallback} ,m_updateContinuously{updateContinuously}
+        m_responseCallback{responseCallback}, m_updateContinuously{updateContinuously}, m_usbDebug{usbDebug}
     {
         if (tempDir.empty()) {
             m_tempDir = MakeTempDirectory();
@@ -113,9 +113,9 @@ public:
         uint16_t productId = m_firmware->GetProductId();
 
 #if PLATFORM_WINDOWS
-        m_transport = std::make_unique<WinUSBTransport>();
+        m_transport = std::make_unique<WinUSBTransport>(m_usbDebug);
 #else
-        m_transport = std::make_unique<USBTransport>();
+        m_transport = std::make_unique<USBTransport>(m_usbDebug);
 #endif
 
         if (m_transport->Init(vendorId, productId,
@@ -159,6 +159,7 @@ private:
     std::string m_tempDir;
     bool m_updateContinuously = false;
     bool m_deviceFound = false;
+    bool m_usbDebug;
 
     std::vector<std::shared_ptr<AstraDevice>> m_devices;
     std::mutex m_devicesMutex;
@@ -237,9 +238,10 @@ AstraUpdate::AstraUpdate(std::shared_ptr<FlashImage> flashImage,
     std::function<void(AstraUpdateResponse)> responseCallback,
     bool updateContinuously,
     AstraLogLevel minLogLevel, const std::string &logPath,
-    const std::string &tempDir)
+    const std::string &tempDir,
+    bool usbDebug)
     : pImpl{std::make_unique<AstraUpdateImpl>(flashImage, bootFirmwarePath, responseCallback,
-        updateContinuously, minLogLevel, logPath, tempDir)}
+        updateContinuously, minLogLevel, logPath, tempDir, usbDebug)}
 {}
 
 AstraUpdate::~AstraUpdate() = default;

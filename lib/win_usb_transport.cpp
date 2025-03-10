@@ -23,6 +23,10 @@ int WinUSBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<v
         return ret;
     }
 
+    if (m_usbDebug) {
+        libusb_set_option(m_ctx, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
+    }
+
     m_deviceAddedCallback = deviceAddedCallback;
 
     m_running.store(true);

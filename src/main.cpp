@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
         ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("gen3"))
         ("m,memory-layout", "Memory layout", cxxopts::value<std::string>())
         ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"))
-        ("s,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"));
+        ("S,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"));
 
     auto result = options.parse(argc, argv);
 
@@ -119,6 +119,12 @@ int main(int argc, char* argv[])
     AstraLogLevel logLevel = debug ?  ASTRA_LOG_LEVEL_DEBUG : ASTRA_LOG_LEVEL_INFO;
     bool usbDebug = result["usb-debug"].as<bool>();
     bool simpleProgress = result["simple-progress"].as<bool>();
+
+    if (usbDebug) {
+        // Use simple progress when USB debugging is enabled
+        // because libusb will output to stdout and conflict with progress bars
+        simpleProgress = true;
+    }
 
     std::string manifest = "";
     if (result.count("manifest")) {
@@ -163,7 +169,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath, tempDir);
+    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
 
     ret = update.Init();
     if (ret < 0) {
