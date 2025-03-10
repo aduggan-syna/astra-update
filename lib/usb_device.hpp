@@ -62,7 +62,7 @@ private:
 
     std::mutex m_writeCompleteMutex;
     std::condition_variable m_writeCompleteCV;
-    bool m_writeComplete = false;
+    std::atomic<bool> m_writeComplete = false;
 
     int m_bulkTransferTimeout;
 

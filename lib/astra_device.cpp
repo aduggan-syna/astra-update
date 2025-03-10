@@ -88,7 +88,7 @@ public:
         {
             log(ASTRA_LOG_LEVEL_DEBUG) << "Waiting for imageRequest thread to be ready" << endLog;
             std::unique_lock<std::mutex> lock(m_imageRequestThreadReadyMutex);
-            m_imageRequestThreadReadyCV.wait(lock, [this] { return m_imageRequestThreadReady; });
+            m_imageRequestThreadReadyCV.wait(lock, [this] { return m_imageRequestThreadReady.load(); });
         }
 
         ret = m_usbDevice->EnableInterrupts();
@@ -228,12 +228,12 @@ private:
     std::thread m_imageRequestThread;
     std::condition_variable m_imageRequestCV;
     std::mutex m_imageRequestMutex;
-    bool m_imageRequestReady = false;
+    std::atomic<bool> m_imageRequestReady = false;
     uint8_t m_imageType;
     std::string m_requestedImageName;
     std::condition_variable m_imageRequestThreadReadyCV;
     std::mutex m_imageRequestThreadReadyMutex;
-    bool m_imageRequestThreadReady = false;
+    std::atomic<bool> m_imageRequestThreadReady = false;
 
     const std::string m_imageRequestString = "i*m*g*r*q*";
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
@@ -309,10 +309,7 @@ private:
             }
             log(ASTRA_LOG_LEVEL_DEBUG) << "Requested image name: '" << m_requestedImageName << "'" << endLog;
 
-            {
-                std::lock_guard<std::mutex> lock(m_imageRequestMutex);
-                m_imageRequestReady = true;
-            }
+            m_imageRequestReady.store(true);
             m_imageRequestCV.notify_one();
         } else {
             m_console->Append(message);
@@ -449,10 +446,7 @@ private:
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Signal image request thread ready" << endLog;
 
-        {
-            std::lock_guard<std::mutex> lock(m_imageRequestThreadReadyMutex);
-            m_imageRequestThreadReady = true;
-        }
+        m_imageRequestThreadReady.store(true);
         m_imageRequestThreadReadyCV.notify_all();
 
         while (true) {
@@ -467,9 +461,9 @@ private:
                 notified = m_imageRequestCV.wait_for(lock, timeout, [this] {
                     // If true, then set to false in the lambda while the lock is
                     // held. If no longer running then return true to exit the loop.
-                    bool previousValue = m_imageRequestReady;
-                    if (m_imageRequestReady) {
-                        m_imageRequestReady = false;
+                    bool previousValue = m_imageRequestReady.load();
+                    if (previousValue) {
+                        m_imageRequestReady.store(false);
                     }
                     return previousValue  || !m_running.load();
                 });

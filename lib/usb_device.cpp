@@ -312,8 +312,8 @@ int USBDevice::Write(uint8_t *data, size_t size, int *transferred)
 
     std::unique_lock<std::mutex> lock(m_writeCompleteMutex);
     m_writeCompleteCV.wait(lock, [this] {
-        if (m_writeComplete) {
-            m_writeComplete = false;
+        if (m_writeComplete.load()) {
+            m_writeComplete.store(false);
             return true;
         }
     });
@@ -365,11 +365,8 @@ void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
         if (transfer->type == LIBUSB_TRANSFER_TYPE_BULK) {
             if (transfer->endpoint == device->m_bulkOutEndpoint) {
-                {
-                    std::lock_guard<std::mutex> lock(device->m_writeCompleteMutex);
-                    device->m_writeComplete = true;
-                }
                 device->m_actualBytesWritten = transfer->actual_length;
+                device->m_writeComplete.store(true);
                 device->m_writeCompleteCV.notify_one();
             }
         } else if (transfer->type == LIBUSB_TRANSFER_TYPE_INTERRUPT) {
