@@ -74,7 +74,7 @@ int AstraBootFirmware::Load()
                         return ret;
                     }
                 } else {
-                    m_images.push_back(Image(entry.path().string()));
+                    m_images.push_back(Image(entry.path().string(), ASTRA_IMAGE_TYPE_BOOT));
                 }
             }
         }

@@ -16,6 +16,6 @@ public:
     int Load() override;
 
 private:
-    void ParseEmmcPartList();
+    void ParseEmmcImageList();
     const std::string m_resetCommand = "; sleep 1; reset";
 };

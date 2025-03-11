@@ -17,14 +17,22 @@ enum AstraMemoryLayout {
     ASTRA_MEMORY_LAYOUT_4GB = 3,
 };
 
+enum AstraImageType {
+    ASTRA_IMAGE_TYPE_BOOT,
+    ASTRA_IMAGE_TYPE_UPDATE_EMMC,
+    ASTRA_IMAGE_TYPE_UPDATE_SPI,
+    ASTRA_IMAGE_TYPE_UPDATE_NAND,
+};
+
 class Image
 {
 public:
-    Image(std::string imagePath) : m_imagePath{imagePath}
+    Image(std::string imagePath, AstraImageType imageType) : m_imagePath{imagePath}, m_imageType{imageType}
     {
         m_imageName = std::filesystem::path(m_imagePath).filename().string();
     }
-    Image(const Image &other) : m_imagePath{other.m_imagePath}, m_imageName{other.m_imageName}
+    Image(const Image &other) : m_imagePath{other.m_imagePath}, m_imageName{other.m_imageName},
+        m_imageType{other.m_imageType}
     {}
     ~Image();
 
@@ -32,6 +40,7 @@ public:
     {
         m_imagePath = other.m_imagePath;
         m_imageName = other.m_imageName;
+        m_imageType = other.m_imageType;
         return *this;
     }
 
@@ -41,12 +50,14 @@ public:
     std::string GetPath() const { return m_imagePath; }
     int GetDataBlock(uint8_t *data, size_t size);
     size_t GetSize() const { return m_imageSize; }
+    AstraImageType GetImageType() const { return m_imageType; }
 
 private:
     std::string m_imagePath;
     std::string m_imageName;
     size_t m_imageSize;
     std::ifstream m_file;
+    AstraImageType m_imageType;
 
     FILE *m_fp;
 };

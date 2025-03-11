@@ -68,9 +68,9 @@ public:
         imageFile << m_usbDevice->GetUSBPath();
         imageFile.close();
 
-        m_usbPathImage = std::make_unique<Image>(m_tempDir + "/"  + m_usbPathImageFilename);
-        m_sizeRequestImage = std::make_unique<Image>(m_tempDir + "/" + m_sizeRequestImageFilename);
-        m_uEnvImage = std::make_unique<Image>(m_tempDir + "/" + m_uEnvFilename);
+        m_usbPathImage = std::make_unique<Image>(m_tempDir + "/"  + m_usbPathImageFilename, ASTRA_IMAGE_TYPE_BOOT);
+        m_sizeRequestImage = std::make_unique<Image>(m_tempDir + "/" + m_sizeRequestImageFilename, ASTRA_IMAGE_TYPE_UPDATE_EMMC);
+        m_uEnvImage = std::make_unique<Image>(m_tempDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
 
         m_status = ASTRA_DEVICE_STATUS_OPENED;
 
@@ -450,6 +450,8 @@ private:
         m_imageRequestThreadReady.store(true);
         m_imageRequestThreadReadyCV.notify_all();
 
+        bool waitForSizeRequest = false;
+
         while (true) {
             bool notified = false;
 
@@ -552,11 +554,21 @@ private:
                     if (image->GetName().find(m_finalBootImage) != std::string::npos) {
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
                         m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
-                    } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) { // FIXME: If there us a home_s.subimg.1 the reports complete too soon
+                        SendStatus(m_status, 100, "", "Success");
+                    } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) {
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
+                        if (image->GetImageType() == ASTRA_IMAGE_TYPE_UPDATE_EMMC) {
+                            // EMMC update will ask for a request the size of the image
+                            // just sent. Wait for that before marking the update complete.
+                            waitForSizeRequest = true;
+                        } else {
+                            m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
+                        }
+                    } else if (waitForSizeRequest && image->GetName() == m_sizeRequestImageFilename) {
+                        log(ASTRA_LOG_LEVEL_DEBUG) << "Size request image sent" << endLog;
                         m_status = ASTRA_DEVICE_STATUS_UPDATE_COMPLETE;
+                        waitForSizeRequest = false;
                     }
-                    SendStatus(m_status, 100, "", "Success");
                     m_imageCount++;
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Image count: " << m_imageCount << endLog;
                 }

@@ -34,7 +34,7 @@ int EmmcFlashImage::Load()
             if ((filename.find("emmc") != std::string::npos) ||
                 (filename.find("subimg") != std::string::npos))
             {
-                m_images.push_back(Image(entry.path().string()));
+                m_images.push_back(Image(entry.path().string(), ASTRA_IMAGE_TYPE_UPDATE_EMMC));
             } else if ((filename.find("TAG--") != std::string::npos) && (filename.find("astra") != std::string::npos)) {
                 // Yocto builds create a TAG file in the image directory. The name of the file
                 // contains the chip name and image name. We use this to determine the chip name
@@ -75,24 +75,24 @@ int EmmcFlashImage::Load()
         }
     }
 
-    ParseEmmcPartList();
+    ParseEmmcImageList();
 
     return ret;
 }
 
-void EmmcFlashImage::ParseEmmcPartList()
+void EmmcFlashImage::ParseEmmcImageList()
 {
     ASTRA_LOG;
 
-    std::string emmcPartListPath;
+    std::string emmcPartImagePath;
     for (const auto& image : m_images) {
-        if (image.GetName() == "emmc_part_list") {
-            emmcPartListPath = image.GetPath();
+        if (image.GetName() == "emmc_image_list") {
+            emmcPartImagePath = image.GetPath();
             break;
         }
     }
 
-    std::ifstream file(emmcPartListPath);
+    std::ifstream file(emmcPartImagePath);
     std::string line;
     std::string lastEntryName;
 
@@ -100,7 +100,7 @@ void EmmcFlashImage::ParseEmmcPartList()
         std::istringstream iss(line);
         std::string name;
         if (std::getline(iss, name, ',')) {
-            name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+            name.erase(name.find_last_not_of(",") + 1);
             lastEntryName = name;
         }
     }

@@ -41,14 +41,14 @@ int SpiFlashImage::Load()
         imageFile = m_config["image_file"];
         std::string fullImagePath = m_imagePath + "/" + imageFile;
         if (std::filesystem::exists(fullImagePath)) {
-            m_images.push_back(Image(fullImagePath));
+            m_images.push_back(Image(fullImagePath, ASTRA_IMAGE_TYPE_UPDATE_SPI));
         } else {
             return -1;
         }
     } else {
         imageFile = std::filesystem::path(m_imagePath).filename().string();
         if (std::filesystem::exists(m_imagePath)) {
-            m_images.push_back(Image(m_imagePath));
+            m_images.push_back(Image(m_imagePath, ASTRA_IMAGE_TYPE_UPDATE_SPI));
         } else {
             return -1;
         }
