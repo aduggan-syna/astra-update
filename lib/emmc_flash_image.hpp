@@ -17,5 +17,5 @@ public:
 
 private:
     void ParseEmmcImageList();
-    const std::string m_resetCommand = "; sleep 1; reset";
+    const std::string m_resetCommand = "; sleep 1; reset"; // sleep before resetting to let console messages be sent to the host
 };

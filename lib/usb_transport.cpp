@@ -37,6 +37,7 @@ void USBTransport::DeviceMonitorThread()
     }
 }
 
+// Windows overrides this function in win_usb_transport.cpp. Add code which needs to run on Windows to that function as well.
 int USBTransport::Init(uint16_t vendorId, uint16_t productId, std::function<void(std::unique_ptr<USBDevice>)> deviceAddedCallback)
 {
     ASTRA_LOG;

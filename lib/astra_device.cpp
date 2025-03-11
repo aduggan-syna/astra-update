@@ -111,8 +111,7 @@ public:
             m_images.insert(m_images.end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         }
         if (m_uEnvSupport) {
-            std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand() + "; reset";
-            //std::string uEnv = "bootcmd=reset";
+            std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand();
             std::ofstream uEnvFile(m_tempDir + "/" + m_uEnvFilename);
             if (!uEnvFile) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
@@ -279,13 +278,6 @@ private:
         ASTRA_LOG;
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Interrupt received: size:" << size << endLog;
-
-#if 0
-        for (size_t i = 0; i < size; ++i) {
-            log << std::hex << static_cast<int>(buf[i]) << " ";
-        }
-        log << std::dec << endLog;
-#endif
 
         std::string message(reinterpret_cast<char *>(buf), size);
 
@@ -462,8 +454,6 @@ private:
                 auto timeout = std::chrono::seconds(10);
 
                 notified = m_imageRequestCV.wait_for(lock, timeout, [this] {
-                    // If true, then set to false in the lambda while the lock is
-                    // held. If no longer running then return true to exit the loop.
                     bool previousValue = m_imageRequestReady.load();
                     if (previousValue) {
                         m_imageRequestReady.store(false);
@@ -500,19 +490,6 @@ private:
             {
                 std::lock_guard<std::mutex> lock(m_imageMutex);
                 auto it = std::find_if(m_images.begin(), m_images.end(), [requestedImageName = m_requestedImageName](const Image &img) {
-    #if 0
-                    ASTRA_LOG;
-
-                    log(ASTRA_LOG_LEVEL_DEBUG) << "Comparing: " << img.GetName() << " to " << requestedImageName << endLog;
-                    for (char c : img.GetName()) {
-                        log << std::hex << static_cast<int>(c) << " ";
-                    }
-                    log << " vs ";
-                    for (char c : requestedImageName) {
-                        log << std::hex << static_cast<int>(c) << " ";
-                    }
-                    log << std::dec << endLog;
-    #endif
                     return img.GetName() == requestedImageName;
                 });
 

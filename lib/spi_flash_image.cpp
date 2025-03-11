@@ -10,7 +10,7 @@ int SpiFlashImage::Load()
 
     int ret = 0;
 
-    // Set spi command values from config
+    // Allow spi command values from config override the default values
     if (m_config.find("read_address") != m_config.end()) {
         m_readAddress = m_config["read_address"];
     }
@@ -54,6 +54,7 @@ int SpiFlashImage::Load()
         }
     }
 
+    // Flash primary and secondary copies of the SPI U-Boot image
     m_flashCommand = "usbload " + imageFile + " " + m_readAddress + "; spinit; erase " 
         + m_eraseFirstStartAddress + " " + m_eraseFirstEndAddress + "; cp.b " + m_readAddress + " " + m_writeFirstCopyAddress
         + " " + m_writeLength + "; erase " + m_eraseSecondStartAddress + " " + m_eraseSecondEndAddress
