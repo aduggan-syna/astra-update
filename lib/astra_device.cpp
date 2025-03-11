@@ -57,9 +57,16 @@ public:
         m_deviceName = "device:" + m_usbDevice->GetUSBPath();
         log(ASTRA_LOG_LEVEL_INFO) << "Device name: " << m_deviceName << endLog;
 
-        m_console = std::make_unique<AstraConsole>(m_deviceName, m_tempDir);
+        std::string modifiedDeviceName = m_deviceName;
+        std::remove(modifiedDeviceName.begin(), modifiedDeviceName.end(), ':');
+        std::replace(modifiedDeviceName.begin(), modifiedDeviceName.end(), '.', '_');
 
-        std::ofstream imageFile(m_tempDir + "/" + m_usbPathImageFilename);
+        m_deviceDir = m_tempDir + "/" + modifiedDeviceName;
+        std::filesystem::create_directories(m_deviceDir);
+
+        m_console = std::make_unique<AstraConsole>(modifiedDeviceName, m_deviceDir);
+
+        std::ofstream imageFile(m_deviceDir + "/" + m_usbPathImageFilename);
         if (!imageFile) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open 06_IMAGE file" << endLog;
             return -1;
@@ -68,9 +75,9 @@ public:
         imageFile << m_usbDevice->GetUSBPath();
         imageFile.close();
 
-        m_usbPathImage = std::make_unique<Image>(m_tempDir + "/"  + m_usbPathImageFilename, ASTRA_IMAGE_TYPE_BOOT);
-        m_sizeRequestImage = std::make_unique<Image>(m_tempDir + "/" + m_sizeRequestImageFilename, ASTRA_IMAGE_TYPE_UPDATE_EMMC);
-        m_uEnvImage = std::make_unique<Image>(m_tempDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
+        m_usbPathImage = std::make_unique<Image>(m_deviceDir + "/"  + m_usbPathImageFilename, ASTRA_IMAGE_TYPE_BOOT);
+        m_sizeRequestImage = std::make_unique<Image>(m_deviceDir + "/" + m_sizeRequestImageFilename, ASTRA_IMAGE_TYPE_UPDATE_EMMC);
+        m_uEnvImage = std::make_unique<Image>(m_deviceDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
 
         m_status = ASTRA_DEVICE_STATUS_OPENED;
 
@@ -112,7 +119,7 @@ public:
         }
         if (m_uEnvSupport) {
             std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand();
-            std::ofstream uEnvFile(m_tempDir + "/" + m_uEnvFilename);
+            std::ofstream uEnvFile(m_deviceDir + "/" + m_uEnvFilename);
             if (!uEnvFile) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
                 return -1;
@@ -243,6 +250,7 @@ private:
     enum AstraUbootConsole m_ubootConsole;
 
     std::string m_tempDir;
+    std::string m_deviceDir;
     const std::string m_usbPathImageFilename = "06_IMAGE";
     const std::string m_sizeRequestImageFilename = "07_IMAGE";
     const std::string m_uEnvFilename = "uEnv.txt";
@@ -258,7 +266,8 @@ private:
         ASTRA_LOG;
 
         if (imageName != m_sizeRequestImageFilename) { //filter out size request image
-            log(ASTRA_LOG_LEVEL_INFO) << "Device status: " << AstraDeviceStatusToString(status) << " Progress: " << progress << " Image: " << imageName << " Message: " << message << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "Device status: " << AstraDeviceStatusToString(status) << " Progress: " << progress
+                << " Image: " << imageName << " Message: " << message << endLog;
             m_statusCallback({DeviceResponse{m_deviceName, status, progress, imageName, message}});
         }
     }
