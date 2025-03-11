@@ -31,8 +31,6 @@ public:
 
     int Init();
 
-    std::shared_ptr<AstraBootFirmware> GetBootFirmware();
-
     void Shutdown();
 
 private:

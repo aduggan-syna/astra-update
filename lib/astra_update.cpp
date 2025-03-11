@@ -143,13 +143,6 @@ public:
         m_transport->Shutdown();
     }
 
-    std::shared_ptr<AstraBootFirmware> GetBootFirmware()
-    {
-        ASTRA_LOG;
-
-        return m_firmware;
-    }
-
 private:
     std::unique_ptr<USBTransport> m_transport;
     std::function<void(AstraUpdateResponse)> m_responseCallback;
@@ -254,9 +247,4 @@ int AstraUpdate::Init()
 void AstraUpdate::Shutdown()
 {
     return pImpl->Shutdown();
-}
-
-std::shared_ptr<AstraBootFirmware> AstraUpdate::GetBootFirmware()
-{
-    return pImpl->GetBootFirmware();
 }
