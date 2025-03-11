@@ -33,28 +33,21 @@ public:
             if (m_tempDir.empty()) {
                 m_tempDir = "./";
             }
+            m_removeTempOnClose = true;
         } else {
             m_tempDir = tempDir;
-            //std::filesystem::remove_all(m_tempDir);
             std::filesystem::create_directories(m_tempDir);
         }
 
-        std::string modifiedLogPath = logPath;
+        m_modifiedLogPath = logPath;
         if (logPath == "") {
-            modifiedLogPath = m_tempDir + "/astra_update.log";
+            m_modifiedLogPath = m_tempDir + "/astra_update.log";
         }
-        AstraLogStore::getInstance().Open(modifiedLogPath, minLogLevel);
+        AstraLogStore::getInstance().Open(m_modifiedLogPath, minLogLevel);
 
         ASTRA_LOG;
 
         log(ASTRA_LOG_LEVEL_INFO) << "final image: " << m_flashImage->GetFinalImage() << endLog;
-    }
-
-    ~AstraUpdateImpl()
-    {
-        ASTRA_LOG;
-
-        AstraLogStore::getInstance().Close();
     }
 
     int Init()
@@ -69,16 +62,18 @@ public:
             // Try to find the best firmware based on other properties
             if (m_flashImage->GetChipName().empty()) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Chip name and boot firmware ID missing!" << endLog;
-                m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "Chip name and boot firmware ID missing!"}});
-                return 1;
+                ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "Chip name and boot firmware ID missing!"}});
+                m_failureReported = true;
+                return -1;
             }
 
             std::vector<std::shared_ptr<AstraBootFirmware>> firmwares = bootFirmwareCollection.GetFirmwaresForChip(m_flashImage->GetChipName(),
                 m_flashImage->GetSecureBootVersion(), m_flashImage->GetMemoryLayout(), m_flashImage->GetBoardName());
             if (firmwares.size() == 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "No boot firmware found for chip: " << m_flashImage->GetChipName() << endLog;
-                m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "No boot firmware found for chip: " + m_flashImage->GetChipName()}});
-                return 1;
+                ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "No boot firmware found for chip: " + m_flashImage->GetChipName()}});
+                m_failureReported = true;
+                return -1;
             } else if (firmwares.size() > 1) {
                 m_firmware = firmwares[0];
                 for (const auto& firmware : firmwares) {
@@ -105,8 +100,9 @@ public:
 
         if (m_firmware == nullptr) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Boot firmware not found" << endLog;
-            m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "Boot firmware not set found (Call ValidateBootFirmware first)"}});
-            return 1;
+            ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "Boot firmware not set found (Call ValidateBootFirmware first)"}});
+            m_failureReported = true;
+            return -1;
         }
 
         std::string bootFirmwareDescription = "Boot Firmware: " + m_firmware->GetChipName() + " " + m_firmware->GetBoardName() + " (" + m_firmware->GetID() + ")\n";
@@ -114,7 +110,7 @@ public:
         bootFirmwareDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_firmware->GetMemoryLayout()) + "\n";
         bootFirmwareDescription += "    U-Boot Console: " + std::string(m_firmware->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
         bootFirmwareDescription += "    uEnt.txt Support: " + std::string(m_firmware->GetUEnvSupport() ? "enabled" : "disabled");
-        m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_INFO, bootFirmwareDescription}});
+        ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_INFO, bootFirmwareDescription}});
 
         uint16_t vendorId = m_firmware->GetVendorId();
         uint16_t productId = m_firmware->GetProductId();
@@ -128,19 +124,20 @@ public:
         if (m_transport->Init(vendorId, productId,
                 std::bind(&AstraUpdateImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
         {
-            return 1;
+            m_failureReported = true;
+            return -1;
         }
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "USB transport initialized successfully" << endLog;
 
         std::ostringstream os;
         os << "Waiting for Astra Device (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << vendorId << ":" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << productId << ")";
-        m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_START, os.str()}});
+        ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_START, os.str()}});
 
         return 0;
     }
 
-    void Shutdown()
+    bool Shutdown()
     {
         ASTRA_LOG;
 
@@ -150,6 +147,19 @@ public:
         }
         m_devices.clear();
         m_transport->Shutdown();
+        AstraLogStore::getInstance().Close();
+
+        if (m_removeTempOnClose) {
+            std::filesystem::remove_all(m_tempDir);
+        }
+
+        return m_failureReported;
+    }
+
+
+    std::string GetLogFile() const
+    {
+        return m_modifiedLogPath;
     }
 
 private:
@@ -159,12 +169,34 @@ private:
     std::shared_ptr<AstraBootFirmware> m_firmware;
     std::shared_ptr<FlashImage> m_flashImage;
     std::string m_tempDir;
+    bool m_removeTempOnClose = false;
     bool m_updateContinuously = false;
     bool m_deviceFound = false;
-    bool m_usbDebug;
+    bool m_usbDebug = false;
+    bool m_failureReported = false;
+    std::string m_modifiedLogPath;
 
     std::vector<std::shared_ptr<AstraDevice>> m_devices;
     std::mutex m_devicesMutex;
+
+    void ResponseCallback(AstraUpdateResponse response)
+    {
+        // If a failure is reported then retain the temp directory contains logs
+        if (response.IsUpdateResponse()) {
+            if (response.GetUpdateResponse().m_updateStatus == ASTRA_UPDATE_STATUS_FAILURE) {
+                m_removeTempOnClose = false;
+                m_failureReported = true;
+            }
+        } else if (response.IsDeviceResponse()) {
+            if (response.GetDeviceResponse().m_status == ASTRA_DEVICE_STATUS_BOOT_FAIL ||
+                response.GetDeviceResponse().m_status == ASTRA_DEVICE_STATUS_UPDATE_FAIL)
+            {
+                m_removeTempOnClose = false;
+                m_failureReported = true;
+            }
+        }
+        m_responseCallback(response);
+    }
 
     void UpdateAstraDevice(std::shared_ptr<AstraDevice> astraDevice)
     {
@@ -179,7 +211,7 @@ private:
             int ret = astraDevice->Boot(m_firmware);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to boot device" << endLog;
-                m_responseCallback({ DeviceResponse{astraDevice->GetDeviceName(), ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, "", "Failed to Boot Device"}});
+                ResponseCallback({ DeviceResponse{astraDevice->GetDeviceName(), ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, "", "Failed to Boot Device"}});
                 return;
             }
 
@@ -202,7 +234,7 @@ private:
             log(ASTRA_LOG_LEVEL_DEBUG) << "Device status: " << AstraDevice::AstraDeviceStatusToString(status) << endLog;
             if (status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE && !m_updateContinuously) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down Astra Update" << endLog;
-                m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
+                ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_SHUTDOWN, "Astra Update shutting down"}});
             }
 
             astraDevice->Close();
@@ -212,16 +244,6 @@ private:
     void DeviceAddedCallback(std::unique_ptr<USBDevice> device)
     {
         ASTRA_LOG;
-
-        // This code is meant to prevent multiple devices from being added
-        // it not in continuous mode. But, if the device hangs in the bootloader
-        // we want to be able to restart. Disable for now and revisit if needed.
-#if 0
-        if (m_deviceFound && !m_updateContinuously) {
-            log(ASTRA_LOG_LEVEL_DEBUG) << "Device already found" << endLog;
-            return;
-        }
-#endif
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Device added AstraUpdateImpl::DeviceAddedCallback" << endLog;
         std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device), m_tempDir);
@@ -253,7 +275,12 @@ int AstraUpdate::Init()
     return pImpl->Init();
 }
 
-void AstraUpdate::Shutdown()
+bool AstraUpdate::Shutdown()
 {
     return pImpl->Shutdown();
+}
+
+std::string AstraUpdate::GetLogFile() const
+{
+    return pImpl->GetLogFile();
 }

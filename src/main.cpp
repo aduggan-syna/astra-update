@@ -162,13 +162,13 @@ int main(int argc, char* argv[])
     std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory(flashImagePath, config, manifest);
     if (flashImage.get() == nullptr) {
         std::cerr << "Failed to create flash image" << std::endl;
-        return 1;
+        return -1;
     }
 
     int ret = flashImage->Load();
     if (ret < 0) {
         std::cerr << "Failed to load flash image" << std::endl;
-        return 1;
+        return -1;
     }
 
     std::cout << "Update Image: " << flashImage->GetChipName() << " " << flashImage->GetBoardName() << std::endl;
@@ -181,8 +181,10 @@ int main(int argc, char* argv[])
     ret = update.Init();
     if (ret < 0) {
         std::cerr << "Error Starting Astra Update" << std::endl;
-        return 1;
+        return -1;
     }
+
+    indicators::show_console_cursor(false);
 
     while (true) {
         std::unique_lock<std::mutex> lock(updateResponsesMutex);
@@ -232,8 +234,12 @@ int main(int argc, char* argv[])
             }
         }
     }
+    indicators::show_console_cursor(true);
 
-    update.Shutdown();
+    if (update.Shutdown()) {
+        std::cerr << "Error reported: please check the log file for more information: " << update.GetLogFile() << std::endl;
+        return -1;
+    }
 
     return 0;
 }

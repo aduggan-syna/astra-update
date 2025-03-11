@@ -30,8 +30,8 @@ public:
     ~AstraUpdate();
 
     int Init();
-
-    void Shutdown();
+    bool Shutdown();
+    std::string GetLogFile() const;
 
 private:
     class AstraUpdateImpl;
