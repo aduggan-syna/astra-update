@@ -314,8 +314,13 @@ private:
 
         if (event == USBDevice::USB_DEVICE_EVENT_INTERRUPT) {
             HandleInterrupt(buf, size);
-        } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE || event == USBDevice::USB_DEVICE_EVENT_TRANSFER_CANCELED) {
-            // device disappeared
+        } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE || event == USBDevice::USB_DEVICE_EVENT_TRANSFER_CANCELED ||
+            event == USBDevice::USB_DEVICE_EVENT_TRANSFER_ERROR)
+        {
+            // device disappeared or reported an error.
+            // If this occurred during boot or an update then report a failure.
+            // This this happened after and successful update then this is just
+            // the device rebooting so report success.
             log(ASTRA_LOG_LEVEL_DEBUG) << "Device disconnected: shutting down" << endLog;
             if (m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
                 m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;

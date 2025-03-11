@@ -380,7 +380,7 @@ void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
         }
     } else if (transfer->status == LIBUSB_TRANSFER_NO_DEVICE) {
         device->m_running.store(false);
-        log(ASTRA_LOG_LEVEL_ERROR) << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Device is no longer there during transfer: " << libusb_error_name(transfer->status) << endLog;
         device->m_usbEventCallback(USB_DEVICE_EVENT_NO_DEVICE, nullptr, 0);
     } else if (transfer->status == LIBUSB_TRANSFER_CANCELLED) {
         device->m_running.store(false);
@@ -397,6 +397,7 @@ void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
         }
     } else {
         log(ASTRA_LOG_LEVEL_ERROR) << "Transfer failed: " << libusb_error_name(transfer->status) << endLog;
+        device->m_usbEventCallback(USB_DEVICE_EVENT_TRANSFER_ERROR, nullptr, 0);
     }
 
     if (resubmit && device->m_running.load()) {
