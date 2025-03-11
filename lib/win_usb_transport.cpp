@@ -70,7 +70,7 @@ void WinUSBTransport::RunHotplugHandler()
     WNDCLASS wc = { 0 };
     wc.lpfnWndProc = WinUSBTransport::WndProc;
     wc.hInstance = GetModuleHandle(nullptr);
-    wc.lpszClassName = TEXT("WinUSBTransport");
+    wc.lpszClassName = TEXT("AstraUpdate");
 
     if (!RegisterClass(&wc)) {
         DWORD error = GetLastError();
@@ -78,7 +78,7 @@ void WinUSBTransport::RunHotplugHandler()
         return;
     }
 
-    m_hWnd = CreateWindow(wc.lpszClassName, TEXT("WinUSBTransport"), 0, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, this);
+    m_hWnd = CreateWindow(wc.lpszClassName, TEXT("AstraUpdate"), 0, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, this);
     if (!m_hWnd) {
         DWORD error = GetLastError();
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to create window: " << error << endLog;
@@ -126,8 +126,6 @@ void WinUSBTransport::OnDeviceArrived()
 {
     ASTRA_LOG;
 
-    // Handle device arrival
-    // You can use libusb to get the device list and find the new device
     libusb_device **device_list;
     ssize_t count = libusb_get_device_list(m_ctx, &device_list);
     if (count < 0) {
@@ -144,7 +142,6 @@ void WinUSBTransport::OnDeviceArrived()
             continue;
         }
 
-        // Check if the device matches the vendorId and productId
         if (desc.idVendor == m_vendorId && desc.idProduct == m_productId) {
             std::unique_ptr<USBDevice> usbDevice = std::make_unique<USBDevice>(device, m_ctx);
             if (m_deviceAddedCallback) {
