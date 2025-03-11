@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
         ("M,manifest", "Manifest file path", cxxopts::value<std::string>())
         ("i,boot-firmware-id", "Boot firmware ID", cxxopts::value<std::string>())
         ("t,image-type", "Image type", cxxopts::value<std::string>())
-        ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("gen3"))
+        ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("genx"))
         ("m,memory-layout", "Memory layout", cxxopts::value<std::string>())
         ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"))
         ("S,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"));
@@ -157,6 +157,8 @@ int main(int argc, char* argv[])
 
     dynamicProgress.set_option(indicators::option::HideBarWhenComplete{false});
 
+    std::cout << "Astra Update\n" << std::endl;
+
     std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory(flashImagePath, config, manifest);
     if (flashImage.get() == nullptr) {
         std::cerr << "Failed to create flash image" << std::endl;
@@ -168,6 +170,11 @@ int main(int argc, char* argv[])
         std::cerr << "Failed to load flash image" << std::endl;
         return 1;
     }
+
+    std::cout << "Update Image: " << flashImage->GetChipName() << " " << flashImage->GetBoardName() << std::endl;
+    std::cout << "    Secure Boot: " << AstraSecureBootVersionToString(flashImage->GetSecureBootVersion()) << std::endl;
+    std::cout << "    Memory Layout: " << AstraMemoryLayoutToString(flashImage->GetMemoryLayout()) << std::endl;
+    std::cout << "    Boot Firmware ID: " << flashImage->GetBootFirmwareId() << "\n" << std::endl;
 
     AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
 
@@ -186,11 +193,15 @@ int main(int argc, char* argv[])
 
         if (status.IsUpdateResponse()) {
             auto updateResponse = status.GetUpdateResponse();
-            std::cout << "Update status: " << updateResponse.m_updateStatus
-                      << " Message: " << updateResponse.m_updateMessage << std::endl;
-
-            if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_SHUTDOWN) {
+            if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_INFO) {
+                std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
+            } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_SHUTDOWN) {
                 break;
+            } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_START) {
+                std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
+            } else {
+                std::cout << "Update status: " << updateResponse.m_updateStatus
+                        << " Message: " << updateResponse.m_updateMessage << std::endl;
             }
         } else if (status.IsDeviceResponse()) {
             auto deviceResponse = status.GetDeviceResponse();

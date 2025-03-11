@@ -93,7 +93,6 @@ std::string AstraLog::FormatLog(AstraLogLevel logLevel, const std::string &funcN
     return os.str();
 }
 
-// AstraLogStore class implementation
 AstraLogStore::AstraLogStore() {}
 
 AstraLogStore::~AstraLogStore() {

@@ -61,3 +61,31 @@ private:
 
     FILE *m_fp;
 };
+
+static std::string AstraSecureBootVersionToString(AstraSecureBootVersion version)
+{
+    switch (version) {
+        case ASTRA_SECURE_BOOT_V2:
+            return "gen2";
+        case ASTRA_SECURE_BOOT_V3:
+            return "genx";
+        default:
+            return "unknown";
+    }
+}
+
+static std::string AstraMemoryLayoutToString(AstraMemoryLayout memoryLayout)
+{
+    switch (memoryLayout) {
+        case ASTRA_MEMORY_LAYOUT_1GB:
+            return "1GB";
+        case ASTRA_MEMORY_LAYOUT_2GB:
+            return "2GB";
+        case ASTRA_MEMORY_LAYOUT_3GB:
+            return "3GB";
+        case ASTRA_MEMORY_LAYOUT_4GB:
+            return "4GB";
+        default:
+            return "unknown";
+    }
+}

@@ -56,7 +56,7 @@ std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
         }
     }
     catch (const YAML::BadFile& e) {
-        e; // No manifest file, but we might have command line values
+        ;; // No manifest file, but we might have command line values
     } catch (const std::exception& e) {
         throw std::invalid_argument("Invalid Manifest");
     }

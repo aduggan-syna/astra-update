@@ -43,7 +43,7 @@ int AstraBootFirmware::LoadManifest(std::string manifestPath)
 
         log(ASTRA_LOG_LEVEL_INFO) << "Loaded boot firmware: " << m_chipName << " " << m_boardName << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "ID: " << m_id << endLog;
-        log(ASTRA_LOG_LEVEL_INFO) << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "gen3") << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "genx") << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "Vendor ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_vendorId << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "Product ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_productId << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "U-Boot console: " << (m_ubootConsole == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") << endLog;

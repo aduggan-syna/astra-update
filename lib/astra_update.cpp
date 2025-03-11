@@ -109,6 +109,13 @@ public:
             return 1;
         }
 
+        std::string bootFirmwareDescription = "Boot Firmware: " + m_firmware->GetChipName() + " " + m_firmware->GetBoardName() + " (" + m_firmware->GetID() + ")\n";
+        bootFirmwareDescription += "    Secure Boot: " + AstraSecureBootVersionToString(m_firmware->GetSecureBootVersion()) + "\n";
+        bootFirmwareDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_firmware->GetMemoryLayout()) + "\n";
+        bootFirmwareDescription += "    U-Boot Console: " + std::string(m_firmware->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
+        bootFirmwareDescription += "    uEnt.txt Support: " + std::string(m_firmware->GetUEnvSupport() ? "enabled" : "disabled");
+        m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_INFO, bootFirmwareDescription}});
+
         uint16_t vendorId = m_firmware->GetVendorId();
         uint16_t productId = m_firmware->GetProductId();
 
@@ -126,7 +133,9 @@ public:
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "USB transport initialized successfully" << endLog;
 
-        m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_START, "Device search started"}});
+        std::ostringstream os;
+        os << "Waiting for Astra Device (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << vendorId << ":" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << productId << ")";
+        m_responseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_START, os.str()}});
 
         return 0;
     }
