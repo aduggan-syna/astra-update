@@ -35,6 +35,7 @@ public:
     AstraSecureBootVersion GetSecureBootVersion() const { return m_secureBootVersion; }
     AstraMemoryLayout GetMemoryLayout() const { return m_memoryLayout; }
     const std::vector<Image>& GetImages() const { return m_images; }
+    FlashImageType GetFlashImageType() const { return m_flashImageType; }
 
     static std::shared_ptr<FlashImage> FlashImageFactory(std::string imagePath, std::map<std::string, std::string> &config, std::string manifest="");
 
@@ -51,3 +52,17 @@ protected:
     std::string m_finalImage;
     std::map<std::string, std::string> m_config;
 };
+
+static std::string AstraFlashImageTypeToString(FlashImageType type)
+{
+    switch (type) {
+        case FLASH_IMAGE_TYPE_SPI:
+            return "SPI";
+        case FLASH_IMAGE_TYPE_NAND:
+            return "NAND";
+        case FLASH_IMAGE_TYPE_EMMC:
+            return "eMMC";
+        default:
+            return "Unknown";
+    }
+}

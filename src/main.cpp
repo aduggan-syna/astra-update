@@ -172,6 +172,7 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "Update Image: " << flashImage->GetChipName() << " " << flashImage->GetBoardName() << std::endl;
+    std::cout << "    Image Type: " << AstraFlashImageTypeToString(flashImage->GetFlashImageType()) << std::endl;
     std::cout << "    Secure Boot: " << AstraSecureBootVersionToString(flashImage->GetSecureBootVersion()) << std::endl;
     std::cout << "    Memory Layout: " << AstraMemoryLayoutToString(flashImage->GetMemoryLayout()) << std::endl;
     std::cout << "    Boot Firmware ID: " << flashImage->GetBootFirmwareId() << "\n" << std::endl;
