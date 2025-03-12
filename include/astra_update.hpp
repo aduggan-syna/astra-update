@@ -29,7 +29,7 @@ public:
     );
     ~AstraUpdate();
 
-    int Init();
+    void Init();
     bool Shutdown();
     std::string GetLogFile() const;
 

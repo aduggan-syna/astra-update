@@ -29,6 +29,8 @@ void BootFirmwareCollection::Load()
                 }
             }
         }
+    } else {
+        throw std::invalid_argument("Firmware directory " + m_path + " not found");
     }
 }
 

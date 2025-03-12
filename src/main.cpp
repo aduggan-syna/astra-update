@@ -159,9 +159,11 @@ int main(int argc, char* argv[])
 
     std::cout << "Astra Update\n" << std::endl;
 
-    std::shared_ptr<FlashImage> flashImage = FlashImage::FlashImageFactory(flashImagePath, config, manifest);
-    if (flashImage.get() == nullptr) {
-        std::cerr << "Failed to create flash image" << std::endl;
+    std::shared_ptr<FlashImage> flashImage;
+    try {
+        flashImage = FlashImage::FlashImageFactory(flashImagePath, config, manifest);
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load flash image: " << e.what() << std::endl;
         return -1;
     }
 
@@ -179,11 +181,12 @@ int main(int argc, char* argv[])
 
     AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
 
-    ret = update.Init();
-    if (ret < 0) {
-        std::cerr << "Error Starting Astra Update" << std::endl;
+    try {
+        update.Init();
+     } catch (const std::exception& e) {
+        std::cerr << "Failed to initialize update: " << e.what() << std::endl;
         return -1;
-    }
+     }
 
     indicators::show_console_cursor(false);
 

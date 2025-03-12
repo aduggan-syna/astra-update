@@ -44,6 +44,10 @@ std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
         manifest = imagePath + "/manifest.yaml";
     }
 
+    if (!std::filesystem::exists(imagePath)) {
+        throw std::invalid_argument("" + imagePath + " not found");
+    }
+
     try {
         YAML::Node manifestNode = YAML::LoadFile(manifest);
 

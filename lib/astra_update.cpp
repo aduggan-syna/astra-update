@@ -50,7 +50,7 @@ public:
         log(ASTRA_LOG_LEVEL_INFO) << "final image: " << m_flashImage->GetFinalImage() << endLog;
     }
 
-    int Init()
+    void Init()
     {
         ASTRA_LOG;
 
@@ -61,19 +61,13 @@ public:
             // No boot firmware specified in the flash image
             // Try to find the best firmware based on other properties
             if (m_flashImage->GetChipName().empty()) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "Chip name and boot firmware ID missing!" << endLog;
-                ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "Chip name and boot firmware ID missing!"}});
-                m_failureReported = true;
-                return -1;
+                throw std::runtime_error("Chip name and boot firmware ID missing!");
             }
 
             std::vector<std::shared_ptr<AstraBootFirmware>> firmwares = bootFirmwareCollection.GetFirmwaresForChip(m_flashImage->GetChipName(),
                 m_flashImage->GetSecureBootVersion(), m_flashImage->GetMemoryLayout(), m_flashImage->GetBoardName());
             if (firmwares.size() == 0) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "No boot firmware found for chip: " << m_flashImage->GetChipName() << endLog;
-                ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "No boot firmware found for chip: " + m_flashImage->GetChipName()}});
-                m_failureReported = true;
-                return -1;
+                throw std::runtime_error("No boot firmware found for chip: " + m_flashImage->GetChipName());
             } else if (firmwares.size() > 1) {
                 m_firmware = firmwares[0];
                 for (const auto& firmware : firmwares) {
@@ -99,10 +93,7 @@ public:
         }
 
         if (m_firmware == nullptr) {
-            log(ASTRA_LOG_LEVEL_ERROR) << "Boot firmware not found" << endLog;
-            ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_FAILURE, "Boot firmware not set found (Call ValidateBootFirmware first)"}});
-            m_failureReported = true;
-            return -1;
+            throw std::runtime_error("Boot firmware not found");
         }
 
         std::string bootFirmwareDescription = "Boot Firmware: " + m_firmware->GetChipName() + " " + m_firmware->GetBoardName() + " (" + m_firmware->GetID() + ")\n";
@@ -124,8 +115,7 @@ public:
         if (m_transport->Init(vendorId, productId,
                 std::bind(&AstraUpdateImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
         {
-            m_failureReported = true;
-            return -1;
+            throw std::runtime_error("Failed to initialize USB transport");
         }
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "USB transport initialized successfully" << endLog;
@@ -133,8 +123,6 @@ public:
         std::ostringstream os;
         os << "Waiting for Astra Device (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << vendorId << ":" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << productId << ")";
         ResponseCallback({UpdateResponse{ASTRA_UPDATE_STATUS_START, os.str()}});
-
-        return 0;
     }
 
     bool Shutdown()
@@ -270,9 +258,9 @@ AstraUpdate::AstraUpdate(std::shared_ptr<FlashImage> flashImage,
 
 AstraUpdate::~AstraUpdate() = default;
 
-int AstraUpdate::Init()
+void AstraUpdate::Init()
 {
-    return pImpl->Init();
+    pImpl->Init();
 }
 
 bool AstraUpdate::Shutdown()
