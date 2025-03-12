@@ -7,6 +7,7 @@
 #include <indicators/progress_bar.hpp>
 #include <indicators/dynamic_progress.hpp>
 #include <unordered_map>
+#include <csignal>
 
 #include "astra_update.hpp"
 #include "flash_image.hpp"
@@ -32,6 +33,7 @@ struct DeviceImageKeyHash {
 std::queue<AstraUpdateResponse> updateResponses;
 std::condition_variable updateResponsesCV;
 std::mutex updateResponsesMutex;
+std::atomic<bool> running{true};
 
 void AstraUpdateResponseCallback(AstraUpdateResponse response)
 {
@@ -81,9 +83,19 @@ void UpdateSimpleProgress(DeviceResponse &deviceResponse)
                 << " Progress: " << deviceResponse.m_progress << std::endl;
 }
 
+void SignalHandler(int signal)
+{
+    if (signal == SIGINT) {
+        running.store(false);
+        updateResponsesCV.notify_all();
+    }
+}
+
 int main(int argc, char* argv[])
 {
     cxxopts::Options options("AstraUpdate", "Astra Update Utility");
+
+    std::signal(SIGINT, SignalHandler);
 
     options.add_options()
         ("B,boot-firmware-collection", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("astra-usbboot-firmware"))
@@ -190,50 +202,56 @@ int main(int argc, char* argv[])
 
     indicators::show_console_cursor(false);
 
-    while (true) {
-        std::unique_lock<std::mutex> lock(updateResponsesMutex);
-        updateResponsesCV.wait(lock, []{ return !updateResponses.empty(); });
+    if (running.load()) {
+        while (true) {
+            std::unique_lock<std::mutex> lock(updateResponsesMutex);
+            updateResponsesCV.wait(lock, []{ return !updateResponses.empty() || !running.load(); });
 
-        auto status = updateResponses.front();
-        updateResponses.pop();
-
-        if (status.IsUpdateResponse()) {
-            auto updateResponse = status.GetUpdateResponse();
-            if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_INFO) {
-                std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
-            } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_SHUTDOWN) {
+            if (!running.load()) {
                 break;
-            } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_START) {
-                std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
-            } else {
-                std::cout << "Update status: " << updateResponse.m_updateStatus
-                        << " Message: " << updateResponse.m_updateMessage << std::endl;
             }
-        } else if (status.IsDeviceResponse()) {
-            auto deviceResponse = status.GetDeviceResponse();
 
-            if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_ADDED) {
-                std::cout << "Detected Device: " << deviceResponse.m_deviceName << std::endl;
-            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
-                std::cout << "Booting Device: " << deviceResponse.m_deviceName << std::endl;
-            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_COMPLETE) {
-                std::cout << "Booting " << deviceResponse.m_deviceName << " is complete" << std::endl;
-            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
-                std::cout << "Updating Device: " << deviceResponse.m_deviceName << std::endl;
-            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
-                std::cout << "Device: " << deviceResponse.m_deviceName << " Update Complete" << std::endl;
-            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_FAIL) {
-                std::cout << "Device: " << deviceResponse.m_deviceName << " Boot Failed: " << deviceResponse.m_message << std::endl;
-            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_FAIL) {
-                std::cout << "Device: " << deviceResponse.m_deviceName << " Update Failed: " << deviceResponse.m_message << std::endl;
-            } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_START ||
-                deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS ||
-                deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE)
-            {
-                if (simpleProgress) {
-                    UpdateSimpleProgress(deviceResponse);
+            auto status = updateResponses.front();
+            updateResponses.pop();
+
+            if (status.IsUpdateResponse()) {
+                auto updateResponse = status.GetUpdateResponse();
+                if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_INFO) {
+                    std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
+                } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_SHUTDOWN) {
+                    break;
+                } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_START) {
+                    std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
                 } else {
-                    UpdateProgressBars(deviceResponse, dynamicProgress, progressBars);
+                    std::cout << "Update status: " << updateResponse.m_updateStatus
+                            << " Message: " << updateResponse.m_updateMessage << std::endl;
+                }
+            } else if (status.IsDeviceResponse()) {
+                auto deviceResponse = status.GetDeviceResponse();
+
+                if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_ADDED) {
+                    std::cout << "Detected Device: " << deviceResponse.m_deviceName << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                    std::cout << "Booting Device: " << deviceResponse.m_deviceName << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_COMPLETE) {
+                    std::cout << "Booting " << deviceResponse.m_deviceName << " is complete" << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                    std::cout << "Updating Device: " << deviceResponse.m_deviceName << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
+                    std::cout << "Device: " << deviceResponse.m_deviceName << " Update Complete" << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_FAIL) {
+                    std::cout << "Device: " << deviceResponse.m_deviceName << " Boot Failed: " << deviceResponse.m_message << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_FAIL) {
+                    std::cout << "Device: " << deviceResponse.m_deviceName << " Update Failed: " << deviceResponse.m_message << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_START ||
+                    deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS ||
+                    deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE)
+                {
+                    if (simpleProgress) {
+                        UpdateSimpleProgress(deviceResponse);
+                    } else {
+                        UpdateProgressBars(deviceResponse, dynamicProgress, progressBars);
+                    }
                 }
             }
         }
