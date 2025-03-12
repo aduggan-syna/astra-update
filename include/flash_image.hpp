@@ -36,6 +36,7 @@ public:
     AstraMemoryLayout GetMemoryLayout() const { return m_memoryLayout; }
     const std::vector<Image>& GetImages() const { return m_images; }
     FlashImageType GetFlashImageType() const { return m_flashImageType; }
+    bool GetResetWhenComplete() const { return m_resetWhenComplete; }
 
     static std::shared_ptr<FlashImage> FlashImageFactory(std::string imagePath, std::map<std::string, std::string> &config, std::string manifest="");
 
@@ -51,6 +52,7 @@ protected:
     std::string m_flashCommand;
     std::string m_finalImage;
     std::map<std::string, std::string> m_config;
+    bool m_resetWhenComplete = false;
 };
 
 static std::string AstraFlashImageTypeToString(FlashImageType type)

@@ -112,6 +112,7 @@ public:
         ASTRA_LOG;
 
         m_finalUpdateImage = flashImage->GetFinalImage();
+        m_resetWhenComplete = flashImage->GetResetWhenComplete();
 
         {
             std::lock_guard<std::mutex> lock(m_imageMutex);
@@ -143,7 +144,7 @@ public:
     {
         ASTRA_LOG;
 
-        if (m_uEnvSupport) {
+        if (m_uEnvSupport && m_resetWhenComplete) {
             for (;;) {
                 std::unique_lock<std::mutex> lock(m_deviceEventMutex);
                 m_deviceEventCV.wait(lock);
@@ -151,10 +152,17 @@ public:
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Device event received: shutting down" << endLog;
                     break;
                 }
+                // Device successfully reset after update
+                SendStatus(m_status, 0, "", "Success");
             }
         } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
             if (m_console->WaitForPrompt()) {
-                SendToConsole("reset\n");
+                if (m_resetWhenComplete) {
+                    SendToConsole("reset\n");
+                }
+                // Update does not require a reset, but the
+                // console is back at the U-Boot prompt.
+                SendStatus(m_status, 0, "", "Success");
             }
         }
 
@@ -223,6 +231,7 @@ private:
     std::atomic<bool> m_shutdown{false};
     bool m_uEnvSupport = false;
     std::string m_deviceName;
+    bool m_resetWhenComplete;
 
     std::mutex m_imageMutex;
     std::vector<Image> m_images;
@@ -336,7 +345,11 @@ private:
             } else if (m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
                 m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
             }
-            SendStatus(m_status, 0, "", "Device disconnected");
+            if (m_status != ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
+                // ASTRA_DEVICE_STATUS_UPDATE_COMPLETE will get sent
+                // from WaitForCompletion.
+                SendStatus(m_status, 0, "", "Device disconnected");
+            }
             m_running.store(false);
             m_deviceEventCV.notify_all();
         }
