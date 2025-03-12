@@ -173,7 +173,7 @@ private:
 
     void ResponseCallback(AstraUpdateResponse response)
     {
-        // If a failure is reported then retain the temp directory contains logs
+        // If a failure is reported then retain the temp directory containing logs
         if (response.IsUpdateResponse()) {
             if (response.GetUpdateResponse().m_updateStatus == ASTRA_UPDATE_STATUS_FAILURE) {
                 m_removeTempOnClose = false;
