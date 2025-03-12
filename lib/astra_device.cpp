@@ -485,7 +485,7 @@ private:
             if (!notified) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Timeout waiting for image request" << endLog;
                 if (m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
-                    SendStatus(ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, "", "Timeout during boot");
+                    SendStatus(ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, "", "Timeout during boot, press RESET while holding USB_BOOT to try again");
                     return -1;
                 } else {
                     continue;
