@@ -232,18 +232,21 @@ void USBDevice::Close()
         m_running.store(false);
         if (m_inputInterruptXfer) {
             libusb_cancel_transfer(m_inputInterruptXfer);
+            libusb_handle_events_completed(m_ctx, nullptr);
             libusb_free_transfer(m_inputInterruptXfer);
             m_inputInterruptXfer = nullptr;
         }
 
         if (m_outputInterruptXfer) {
             libusb_cancel_transfer(m_outputInterruptXfer);
+            libusb_handle_events_completed(m_ctx, nullptr);
             libusb_free_transfer(m_outputInterruptXfer);
             m_outputInterruptXfer = nullptr;
         }
 
         if (m_bulkWriteXfer) {
             libusb_cancel_transfer(m_bulkWriteXfer);
+            libusb_handle_events_completed(m_ctx, nullptr);
             libusb_free_transfer(m_bulkWriteXfer);
             m_bulkWriteXfer = nullptr;
         }
