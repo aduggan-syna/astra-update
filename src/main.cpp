@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
     std::signal(SIGINT, SignalHandler);
 
     options.add_options()
-        ("B,boot-firmware-collection", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("astra-usbboot-firmware"))
+        ("B,boot-firmware-collection", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("/usr/share/astra-update/astra-usbboot-firmware"))
         ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
         ("D,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
         ("C,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
