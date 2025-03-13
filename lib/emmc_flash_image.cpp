@@ -35,7 +35,7 @@ int EmmcFlashImage::Load()
             if ((filename.find("emmc") != std::string::npos) ||
                 (filename.find("subimg") != std::string::npos))
             {
-                m_images.push_back(Image(entry.path().string(), ASTRA_IMAGE_TYPE_UPDATE_EMMC));
+                m_images.push_back(std::move(Image(entry.path().string(), ASTRA_IMAGE_TYPE_UPDATE_EMMC)));
             } else if ((filename.find("TAG--") != std::string::npos) && (filename.find("astra") != std::string::npos)) {
                 // Yocto builds create a TAG file in the image directory. The name of the file
                 // contains the chip name and image name. We use this to determine the chip name

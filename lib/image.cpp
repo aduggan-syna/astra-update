@@ -16,6 +16,10 @@ int Image::Load()
     uint32_t size = std::filesystem::file_size(m_imagePath);
     log(ASTRA_LOG_LEVEL_DEBUG) << "Image size: " << size << endLog;
 
+    if (m_fp) {
+        fclose(m_fp);
+    }
+
     FILE *fp = fopen(m_imagePath.c_str(), "rb");
     if (fp == nullptr) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open file: " << m_imagePath << endLog;
@@ -55,5 +59,7 @@ Image::~Image()
 {
     ASTRA_LOG;
 
-    m_file.close();
+    if (m_fp) {
+        fclose(m_fp);
+    }
 }

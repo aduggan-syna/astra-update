@@ -148,12 +148,13 @@ public:
             for (;;) {
                 std::unique_lock<std::mutex> lock(m_deviceEventMutex);
                 m_deviceEventCV.wait(lock);
+                // Device successfully reset after update
+                SendStatus(m_status, 100, "", "Success");
+
                 if (!m_running.load()) {
                     log(ASTRA_LOG_LEVEL_DEBUG) << "Device event received: shutting down" << endLog;
                     break;
                 }
-                // Device successfully reset after update
-                SendStatus(m_status, 0, "", "Success");
             }
         } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
             if (m_console->WaitForPrompt()) {
@@ -162,7 +163,7 @@ public:
                 }
                 // Update does not require a reset, but the
                 // console is back at the U-Boot prompt.
-                SendStatus(m_status, 0, "", "Success");
+                SendStatus(m_status, 100, "", "Success");
             }
         }
 
@@ -216,6 +217,8 @@ public:
             }
             log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down console" << endLog;
             m_console->Shutdown();
+
+            m_images.clear();
 
             log(ASTRA_LOG_LEVEL_DEBUG) << "Closing USB device" << endLog;
             m_usbDevice->Close();

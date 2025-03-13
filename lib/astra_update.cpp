@@ -138,7 +138,11 @@ public:
         AstraLogStore::getInstance().Close();
 
         if (m_removeTempOnClose) {
-            std::filesystem::remove_all(m_tempDir);
+            try {
+                std::filesystem::remove_all(m_tempDir);
+            } catch (const std::exception& e) {
+                log(ASTRA_LOG_LEVEL_WARNING) << "Failed to remove temp directory: " << e.what() << endLog;
+            }
         }
 
         return m_failureReported;
