@@ -176,7 +176,7 @@ int USBDevice::Open(std::function<void(USBEvent event, uint8_t *buf, size_t size
                 ret = libusb_clear_halt(m_handle, endpoint.bEndpointAddress);
                 if (ret < 0) {
                     log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
-                    return 1;
+                    return -1;
                 }
             }
         }
