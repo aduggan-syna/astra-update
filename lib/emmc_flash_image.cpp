@@ -18,13 +18,6 @@ int EmmcFlashImage::Load()
         m_imagePath.erase(m_imagePath.size() - 1);
     }
 
-    if (!std::filesystem::exists(m_imagePath) && m_imagePath == "eMMCimg") {
-        // If not image directory was specified and the default eMMCing does not exist
-        // then try the SYNAIMG directory. WHich is the default directory name created by the
-        // Yocto build system.
-        m_imagePath = "SYNAIMG";
-    }
-
     if (std::filesystem::exists(m_imagePath) && std::filesystem::is_directory(m_imagePath)) {
         std::string directoryName = std::filesystem::path(m_imagePath).filename().string();
         m_flashCommand = "l2emmc " + directoryName + m_resetCommand;
