@@ -19,7 +19,7 @@ ExternalProject_Add(yaml-cpp
                -DYAML_CPP_BUILD_TESTS=OFF
 )
 
-file(GLOB SRC astra_boot_images.cpp
+file(GLOB SRC astra_boot_image.cpp
                 astra_console.cpp
                 astra_device.cpp
                 astra_log.cpp

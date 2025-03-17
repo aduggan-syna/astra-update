@@ -35,7 +35,7 @@ std::condition_variable managerResponsesCV;
 std::mutex managerResponsesMutex;
 std::atomic<bool> running{true};
 
-void AstraUpdateResponseCallback(AstraDeviceManagerResponse response)
+void AstraDeviceManagerResponseCallback(AstraDeviceManagerResponse response)
 {
     std::lock_guard<std::mutex> lock(managerResponsesMutex);
     managerResponses.push(response);
@@ -94,12 +94,11 @@ void SignalHandler(int signal)
 
 int main(int argc, char* argv[])
 {
-    cxxopts::Options options("AstraUpdate", "Astra Update Utility");
+    cxxopts::Options options("AstraBoot", "Astra USB Boot Utility");
 
     std::signal(SIGINT, SignalHandler);
 
     options.add_options()
-        ("B,boot-images-collection", "Astra Boot Images path", cxxopts::value<std::string>()->default_value("astra-usbboot-images"))
         ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
         ("D,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
         ("C,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
@@ -108,11 +107,13 @@ int main(int argc, char* argv[])
         ("b,board", "Board name", cxxopts::value<std::string>())
         ("c,chip", "Chip name", cxxopts::value<std::string>())
         ("M,manifest", "Manifest file path", cxxopts::value<std::string>())
-        ("i,boot-bootImages-id", "Boot bootImages ID", cxxopts::value<std::string>())
         ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("genx"))
         ("m,memory-layout", "Memory layout", cxxopts::value<std::string>())
         ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"))
-        ("S,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"));
+        ("S,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"))
+        ("boot-image", "Boot Image Path", cxxopts::value<std::string>());
+
+    options.parse_positional({"boot-image"});
 
     auto result = options.parse(argc, argv);
 
@@ -121,7 +122,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    std::string bootImagesPath = result["boot-images-collection"].as<std::string>();
+    std::string bootImagePath = result["boot-image"].as<std::string>();
     std::string logFilePath = result["log"].as<std::string>();
     std::string tempDir = result["temp-dir"].as<std::string>();
     bool debug = result["debug"].as<bool>();
@@ -151,9 +152,6 @@ int main(int argc, char* argv[])
     if (result.count("image-type")) {
         config["image_type"] = result["image-type"].as<std::string>();
     }
-    if (result.count("boot-images-id")) {
-        config["boot_images"] = result["boot-images-id"].as<std::string>();
-    }
     if (result.count("secure-boot")) {
         config["secure_boot"] = result["secure-boot"].as<std::string>();
     }
@@ -168,6 +166,78 @@ int main(int argc, char* argv[])
     dynamicProgress.set_option(indicators::option::HideBarWhenComplete{false});
 
     std::cout << "Astra Boot\n" << std::endl;
+
+    AstraDeviceManager deviceManager(bootImagePath, "", AstraDeviceManagerResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
+
+    try {
+        deviceManager.Init();
+     } catch (const std::exception& e) {
+        std::cerr << "Failed to initialize update: " << e.what() << std::endl;
+        return -1;
+     }
+
+    indicators::show_console_cursor(false);
+
+    if (running.load()) {
+        while (true) {
+            std::unique_lock<std::mutex> lock(managerResponsesMutex);
+            managerResponsesCV.wait(lock, []{ return !managerResponses.empty() || !running.load(); });
+
+            if (!running.load()) {
+                break;
+            }
+
+            auto status = managerResponses.front();
+            managerResponses.pop();
+
+            if (status.IsDeviceManagerResponse()) {
+                auto managerResponse = status.GetDeviceManagerResponse();
+                if (managerResponse.m_managerStatus == ASTRA_DEVICE_MANAGER_STATUS_INFO) {
+                    std::cout << managerResponse.m_managerMessage << "\n" << std::endl;
+                } else if (managerResponse.m_managerStatus == ASTRA_DEVICE_MANAGER_STATUS_SHUTDOWN) {
+                    break;
+                } else if (managerResponse.m_managerStatus == ASTRA_DEVICE_MANAGER_STATUS_START) {
+                    std::cout << managerResponse.m_managerMessage << "\n" << std::endl;
+                } else {
+                    std::cout << "Device Manager status: " << managerResponse.m_managerStatus
+                            << " Message: " << managerResponse.m_managerMessage << std::endl;
+                }
+            } else if (status.IsDeviceResponse()) {
+                auto deviceResponse = status.GetDeviceResponse();
+
+                if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_ADDED) {
+                    std::cout << "Detected Device: " << deviceResponse.m_deviceName << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_START) {
+                    std::cout << "Booting Device: " << deviceResponse.m_deviceName << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_COMPLETE) {
+                    std::cout << "Booting " << deviceResponse.m_deviceName << " is complete" << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_START) {
+                    std::cout << "Updating Device: " << deviceResponse.m_deviceName << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
+                    std::cout << "Device: " << deviceResponse.m_deviceName << " Update Complete" << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_BOOT_FAIL) {
+                    std::cout << "Device: " << deviceResponse.m_deviceName << " Boot Failed: " << deviceResponse.m_message << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_UPDATE_FAIL) {
+                    std::cout << "Device: " << deviceResponse.m_deviceName << " Update Failed: " << deviceResponse.m_message << std::endl;
+                } else if (deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_START ||
+                    deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_PROGRESS ||
+                    deviceResponse.m_status == ASTRA_DEVICE_STATUS_IMAGE_SEND_COMPLETE)
+                {
+                    if (simpleProgress) {
+                        UpdateSimpleProgress(deviceResponse);
+                    } else {
+                        UpdateProgressBars(deviceResponse, dynamicProgress, progressBars);
+                    }
+                }
+            }
+        }
+    }
+    indicators::show_console_cursor(true);
+
+    if (deviceManager.Shutdown()) {
+        std::cerr << "Error reported: please check the log file for more information: " << deviceManager.GetLogFile() << std::endl;
+        return -1;
+    }
 
     return 0;
 }

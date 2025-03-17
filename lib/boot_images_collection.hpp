@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <memory>
-#include "astra_boot_images.hpp"
+#include "astra_boot_image.hpp"
 
 class BootImagesCollection
 {
@@ -14,15 +14,15 @@ public:
     void Load();
 
     std::vector<std::tuple<uint16_t, uint16_t>> GetDeviceIDs() const;
-    AstraBootImages &GetBootImages(std::string id) const;
+    AstraBootImage &GetBootImage(std::string id) const;
 
-    std::vector<std::shared_ptr<AstraBootImages>> GetBootImagesForChip(std::string chipName,
+    std::vector<std::shared_ptr<AstraBootImage>> GetBootImagesForChip(std::string chipName,
         AstraSecureBootVersion secureBoot, AstraMemoryLayout memoryLayout, std::string boardName) const;
 
 private:
     std::string m_path;
-    std::vector<std::shared_ptr<AstraBootImages>> m_bootImages;
+    std::vector<std::shared_ptr<AstraBootImage>> m_bootImages;
 
-    void LoadBootImages(const std::filesystem::path &path);
+    void LoadBootImage(const std::filesystem::path &path);
 
 };

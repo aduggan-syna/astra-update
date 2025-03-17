@@ -4,11 +4,11 @@
 #include <iomanip>
 #include <filesystem>
 
-#include "astra_boot_images.hpp"
+#include "astra_boot_image.hpp"
 #include "image.hpp"
 #include "astra_log.hpp"
 
-bool AstraBootImages::LoadManifest(std::string manifestPath)
+bool AstraBootImage::LoadManifest(std::string manifestPath)
 {
     ASTRA_LOG;
 
@@ -59,7 +59,7 @@ bool AstraBootImages::LoadManifest(std::string manifestPath)
     return true;
 }
 
-bool AstraBootImages::Load()
+bool AstraBootImage::Load()
 {
     ASTRA_LOG;
 
@@ -85,12 +85,12 @@ bool AstraBootImages::Load()
     return true;
 }
 
-AstraBootImages::~AstraBootImages()
+AstraBootImage::~AstraBootImage()
 {
     ASTRA_LOG;
 }
 
-const std::string AstraBootImages::GetFinalBootImage()
+const std::string AstraBootImage::GetFinalBootImage()
 {
     ASTRA_LOG;
     std::string finalBootImage;

@@ -32,7 +32,7 @@ public:
         const std::string &tempDir = "",
         bool usbDebug = false
     );
-    AstraDeviceManager(std::string bootImagesPath,
+    AstraDeviceManager(std::string bootImagePath,
         std::string bootCommand,
         std::function<void(AstraDeviceManagerResponse)> responseCallback,
         bool updateContinuously = false,
