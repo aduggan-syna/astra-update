@@ -23,7 +23,7 @@ file(GLOB SRC astra_boot_firmware.cpp
                 astra_console.cpp
                 astra_device.cpp
                 astra_log.cpp
-                astra_update.cpp
+                astra_device_manager.cpp
                 boot_firmware_collection.cpp
                 emmc_flash_image.cpp
                 flash_image.cpp
