@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
     std::signal(SIGINT, SignalHandler);
 
     options.add_options()
-        ("B,boot-images-collection", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("astra-usbboot-images"))
+        ("B,boot-images-collection", "Astra Boot Image path", cxxopts::value<std::string>()->default_value("astra-usbboot-images"))
         ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
         ("D,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
         ("C,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
     std::cout << "    Image Type: " << AstraFlashImageTypeToString(flashImage->GetFlashImageType()) << std::endl;
     std::cout << "    Secure Boot: " << AstraSecureBootVersionToString(flashImage->GetSecureBootVersion()) << std::endl;
     std::cout << "    Memory Layout: " << AstraMemoryLayoutToString(flashImage->GetMemoryLayout()) << std::endl;
-    std::cout << "    Boot Firmware ID: " << flashImage->GetBootFirmwareId() << "\n" << std::endl;
+    std::cout << "    Boot Image ID: " << flashImage->GetBootImageId() << "\n" << std::endl;
 
     AstraDeviceManager deviceManager(flashImage, bootImagesPath, AstraDeviceManagerResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
 

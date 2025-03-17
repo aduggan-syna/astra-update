@@ -17,9 +17,9 @@ enum FlashImageType {
 class FlashImage
 {
 public:
-    FlashImage(FlashImageType flashImageType, std::string imagePath, std::string bootFirmwareId, std::string chipName,
+    FlashImage(FlashImageType flashImageType, std::string imagePath, std::string bootImageId, std::string chipName,
         std::string boardName, AstraSecureBootVersion secureBootVersion, AstraMemoryLayout memoryLayout,
-        std::map<std::string, std::string> config) : m_flashImageType{flashImageType}, m_imagePath{imagePath}, m_bootFirmwareId{bootFirmwareId},
+        std::map<std::string, std::string> config) : m_flashImageType{flashImageType}, m_imagePath{imagePath}, m_bootImageId{bootImageId},
         m_chipName{chipName}, m_boardName{boardName}, m_secureBootVersion{secureBootVersion}, m_memoryLayout{memoryLayout}, m_config{config}
     {}
     virtual ~FlashImage()
@@ -27,7 +27,7 @@ public:
 
     virtual int Load() = 0;
 
-    std::string GetBootFirmwareId() const { return m_bootFirmwareId; }
+    std::string GetBootImageId() const { return m_bootImageId; }
     std::string GetChipName() const { return m_chipName; }
     std::string GetBoardName() const { return m_boardName; }
     std::string GetFlashCommand() const { return m_flashCommand; }
@@ -42,7 +42,7 @@ public:
 
 protected:
     FlashImageType m_flashImageType;
-    std::string m_bootFirmwareId;
+    std::string m_bootImageId;
     std::string m_chipName;
     std::string m_boardName;
     AstraSecureBootVersion m_secureBootVersion;

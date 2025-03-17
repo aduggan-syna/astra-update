@@ -8,7 +8,7 @@
 
 #include "astra_device.hpp"
 #include "astra_device_manager.hpp"
-#include "astra_boot_bootImages.hpp"
+#include "astra_boot_images.hpp"
 #include "flash_image.hpp"
 #include "astra_console.hpp"
 #include "usb_device.hpp"
