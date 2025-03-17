@@ -4,11 +4,11 @@
 #include <iomanip>
 #include <filesystem>
 
-#include "astra_boot_firmware.hpp"
+#include "astra_boot_images.hpp"
 #include "image.hpp"
 #include "astra_log.hpp"
 
-bool AstraBootFirmware::LoadManifest(std::string manifestPath)
+bool AstraBootImages::LoadManifest(std::string manifestPath)
 {
     ASTRA_LOG;
 
@@ -41,7 +41,7 @@ bool AstraBootFirmware::LoadManifest(std::string manifestPath)
             throw std::runtime_error("Invalid memory layout");
         }
 
-        log(ASTRA_LOG_LEVEL_INFO) << "Loaded boot firmware: " << m_chipName << " " << m_boardName << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Loaded boot bootImages: " << m_chipName << " " << m_boardName << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "ID: " << m_id << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "genx") << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "Vendor ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_vendorId << endLog;
@@ -59,7 +59,7 @@ bool AstraBootFirmware::LoadManifest(std::string manifestPath)
     return true;
 }
 
-bool AstraBootFirmware::Load()
+bool AstraBootImages::Load()
 {
     ASTRA_LOG;
 
@@ -80,17 +80,17 @@ bool AstraBootFirmware::Load()
         }
 
     m_directoryName = std::filesystem::path(m_path).filename().string();
-    log(ASTRA_LOG_LEVEL_DEBUG) << "Loaded boot firmware: " << m_directoryName << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Loaded boot bootImages: " << m_directoryName << endLog;
 
     return true;
 }
 
-AstraBootFirmware::~AstraBootFirmware()
+AstraBootImages::~AstraBootImages()
 {
     ASTRA_LOG;
 }
 
-const std::string AstraBootFirmware::GetFinalBootImage()
+const std::string AstraBootImages::GetFinalBootImage()
 {
     ASTRA_LOG;
     std::string finalBootImage;

@@ -25,7 +25,7 @@ enum AstraDeviceStatus {
 };
 
 class USBDevice;
-class AstraBootFirmware;
+class AstraBootImages;
 class AstraDeviceManagerResponse;
 
 class AstraDevice
@@ -36,7 +36,7 @@ public:
 
     void SetStatusCallback(std::function<void(AstraDeviceManagerResponse)> statusCallback);
 
-    int Boot(std::shared_ptr<AstraBootFirmware> firmware);
+    int Boot(std::shared_ptr<AstraBootImages> bootImages);
     int Update(std::shared_ptr<FlashImage> flashImage);
     int WaitForCompletion();
 

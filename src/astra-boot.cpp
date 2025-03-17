@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
     std::signal(SIGINT, SignalHandler);
 
     options.add_options()
-        ("B,boot-firmware-collection", "Astra Boot Firmware path", cxxopts::value<std::string>()->default_value("astra-usbboot-firmware"))
+        ("B,boot-images-collection", "Astra Boot Images path", cxxopts::value<std::string>()->default_value("astra-usbboot-images"))
         ("l,log", "Log file path", cxxopts::value<std::string>()->default_value(""))
         ("D,debug", "Enable debug logging", cxxopts::value<bool>()->default_value("false"))
         ("C,continuous", "Enabled updating multiple devices", cxxopts::value<bool>()->default_value("false"))
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
         ("b,board", "Board name", cxxopts::value<std::string>())
         ("c,chip", "Chip name", cxxopts::value<std::string>())
         ("M,manifest", "Manifest file path", cxxopts::value<std::string>())
-        ("i,boot-firmware-id", "Boot firmware ID", cxxopts::value<std::string>())
+        ("i,boot-bootImages-id", "Boot bootImages ID", cxxopts::value<std::string>())
         ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("genx"))
         ("m,memory-layout", "Memory layout", cxxopts::value<std::string>())
         ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"))
@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    std::string bootFirmwarePath = result["boot-firmware-collection"].as<std::string>();
+    std::string bootImagesPath = result["boot-images-collection"].as<std::string>();
     std::string logFilePath = result["log"].as<std::string>();
     std::string tempDir = result["temp-dir"].as<std::string>();
     bool debug = result["debug"].as<bool>();
@@ -151,8 +151,8 @@ int main(int argc, char* argv[])
     if (result.count("image-type")) {
         config["image_type"] = result["image-type"].as<std::string>();
     }
-    if (result.count("boot-firmware-id")) {
-        config["boot_firmware"] = result["boot-firmware-id"].as<std::string>();
+    if (result.count("boot-images-id")) {
+        config["boot_images"] = result["boot-images-id"].as<std::string>();
     }
     if (result.count("secure-boot")) {
         config["secure_boot"] = result["secure-boot"].as<std::string>();

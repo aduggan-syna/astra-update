@@ -8,7 +8,7 @@
 
 #include "astra_device.hpp"
 #include "astra_device_manager.hpp"
-#include "astra_boot_firmware.hpp"
+#include "astra_boot_bootImages.hpp"
 #include "flash_image.hpp"
 #include "astra_console.hpp"
 #include "usb_device.hpp"
@@ -38,15 +38,15 @@ public:
         m_statusCallback = statusCallback;
     }
 
-    int Boot(std::shared_ptr<AstraBootFirmware> firmware)
+    int Boot(std::shared_ptr<AstraBootImages> bootImages)
     {
         ASTRA_LOG;
 
         int ret;
 
-        m_ubootConsole = firmware->GetUbootConsole();
-        m_uEnvSupport = firmware->GetUEnvSupport();
-        m_finalBootImage = firmware->GetFinalBootImage();
+        m_ubootConsole = bootImages->GetUbootConsole();
+        m_uEnvSupport = bootImages->GetUEnvSupport();
+        m_finalBootImage = bootImages->GetFinalBootImage();
 
         ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::USBEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         if (ret < 0) {
@@ -90,11 +90,11 @@ public:
 
         m_status = ASTRA_DEVICE_STATUS_OPENED;
 
-        std::vector<Image> firmwareImages = firmware->GetImages();
+        std::vector<Image> bootImagesImages = bootImages->GetImages();
 
         {
             std::lock_guard<std::mutex> lock(m_imageMutex);
-            m_images.insert(m_images.end(), firmwareImages.begin(), firmwareImages.end());
+            m_images.insert(m_images.end(), bootImagesImages.begin(), bootImagesImages.end());
         }
 
         m_running.store(true);
@@ -613,8 +613,8 @@ void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceManagerRespons
     pImpl->SetStatusCallback(statusCallback);
 }
 
-int AstraDevice::Boot(std::shared_ptr<AstraBootFirmware> firmware) {
-    return pImpl->Boot(firmware);
+int AstraDevice::Boot(std::shared_ptr<AstraBootImages> bootImages) {
+    return pImpl->Boot(bootImages);
 }
 
 int AstraDevice::Update(std::shared_ptr<FlashImage> flashImage) {

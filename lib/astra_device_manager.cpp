@@ -7,7 +7,7 @@
 #include <condition_variable>
 #include "astra_device.hpp"
 #include "astra_device_manager.hpp"
-#include "boot_firmware_collection.hpp"
+#include "boot_bootImages_collection.hpp"
 #include "usb_transport.hpp"
 #include "image.hpp"
 #include "astra_log.hpp"
@@ -36,9 +36,9 @@ public:
     
         m_bootFirmwareId = m_flashImage->GetBootFirmwareId();
         if (m_bootFirmwareId.empty()) {
-            log(ASTRA_LOG_LEVEL_INFO) << "No boot firmware ID specified in the flash image" << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "No boot bootImages ID specified in the flash image" << endLog;
         } else {
-            log(ASTRA_LOG_LEVEL_INFO) << "Boot firmware ID: " << m_bootFirmwareId << endLog;
+            log(ASTRA_LOG_LEVEL_INFO) << "Boot bootImages ID: " << m_bootFirmwareId << endLog;
         }
 
         m_bootCommand = m_flashImage->GetFlashCommand();
@@ -66,57 +66,57 @@ public:
     {
         ASTRA_LOG;
 
-        BootFirmwareCollection bootFirmwareCollection = BootFirmwareCollection(m_bootFirmwarePath);
-        bootFirmwareCollection.Load();
+          = (m_bootFirmwarePath);
+        .Load();
 
         if (m_bootFirmwareId.empty()) {
-            // No boot firmware specified.
-            // Try to find the best firmware based on other properties
+            // No boot bootImages specified.
+            // Try to find the best bootImages based on other properties
             if (m_flashImage->GetChipName().empty()) {
-                throw std::runtime_error("Chip name and boot firmware ID missing!");
+                throw std::runtime_error("Chip name and boot bootImages ID missing!");
             }
 
-            std::vector<std::shared_ptr<AstraBootFirmware>> firmwares = bootFirmwareCollection.GetFirmwaresForChip(m_flashImage->GetChipName(),
+            std::vector<std::shared_ptr<AstraBootImages>> bootImages = .GetBootImagessForChip(m_flashImage->GetChipName(),
                 m_flashImage->GetSecureBootVersion(), m_flashImage->GetMemoryLayout(), m_flashImage->GetBoardName());
-            if (firmwares.size() == 0) {
-                throw std::runtime_error("No boot firmware found for chip: " + m_flashImage->GetChipName());
-            } else if (firmwares.size() > 1) {
-                m_firmware = firmwares[0];
-                for (const auto& firmware : firmwares) {
-                    log(ASTRA_LOG_LEVEL_INFO) << "Boot firmware: " << firmware->GetChipName() << " " << firmware->GetBoardName() << endLog;
-                    if (firmware->GetUEnvSupport()) {
-                        // Boot firmware with uEnv support is preferred
-                        m_firmware = firmware;
+            if (bootImages.size() == 0) {
+                throw std::runtime_error("No boot bootImages found for chip: " + m_flashImage->GetChipName());
+            } else if (bootImages.size() > 1) {
+                m_bootImages = bootImages[0];
+                for (const auto& bootImages : bootImages) {
+                    log(ASTRA_LOG_LEVEL_INFO) << "Boot bootImages: " << bootImages->GetChipName() << " " << bootImages->GetBoardName() << endLog;
+                    if (bootImages->GetUEnvSupport()) {
+                        // Boot bootImages with uEnv support is preferred
+                        m_bootImages = bootImages;
                         break;
                     }
-                    if (firmware->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_USB) {
-                        // Boot firmware with USB console is preferred over UART
+                    if (bootImages->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_USB) {
+                        // Boot bootImages with USB console is preferred over UART
                         // But only if there is no uEnv support
-                        m_firmware = firmware;
+                        m_bootImages = bootImages;
                     }
                 }
             } else {
                 // Try the only option
-                m_firmware = firmwares[0];
+                m_bootImages = bootImages[0];
             }
         } else {
-            // Exact boot firmware specified
-            m_firmware = std::make_shared<AstraBootFirmware>(bootFirmwareCollection.GetFirmware(m_flashImage->GetBootFirmwareId()));
+            // Exact boot bootImages specified
+            m_bootImages = std::make_shared<AstraBootImages>(.GetBootImages(m_flashImage->GetBootFirmwareId()));
         }
 
-        if (m_firmware == nullptr) {
-            throw std::runtime_error("Boot firmware not found");
+        if (m_bootImages == nullptr) {
+            throw std::runtime_error("Boot bootImages not found");
         }
 
-        std::string bootFirmwareDescription = "Boot Firmware: " + m_firmware->GetChipName() + " " + m_firmware->GetBoardName() + " (" + m_firmware->GetID() + ")\n";
-        bootFirmwareDescription += "    Secure Boot: " + AstraSecureBootVersionToString(m_firmware->GetSecureBootVersion()) + "\n";
-        bootFirmwareDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_firmware->GetMemoryLayout()) + "\n";
-        bootFirmwareDescription += "    U-Boot Console: " + std::string(m_firmware->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
-        bootFirmwareDescription += "    uEnt.txt Support: " + std::string(m_firmware->GetUEnvSupport() ? "enabled" : "disabled");
+        std::string bootFirmwareDescription = "Boot Firmware: " + m_bootImages->GetChipName() + " " + m_bootImages->GetBoardName() + " (" + m_bootImages->GetID() + ")\n";
+        bootFirmwareDescription += "    Secure Boot: " + AstraSecureBootVersionToString(m_bootImages->GetSecureBootVersion()) + "\n";
+        bootFirmwareDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_bootImages->GetMemoryLayout()) + "\n";
+        bootFirmwareDescription += "    U-Boot Console: " + std::string(m_bootImages->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
+        bootFirmwareDescription += "    uEnt.txt Support: " + std::string(m_bootImages->GetUEnvSupport() ? "enabled" : "disabled");
         ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_INFO, bootFirmwareDescription}});
 
-        uint16_t vendorId = m_firmware->GetVendorId();
-        uint16_t productId = m_firmware->GetProductId();
+        uint16_t vendorId = m_bootImages->GetVendorId();
+        uint16_t productId = m_bootImages->GetProductId();
 
 #if PLATFORM_WINDOWS
         m_transport = std::make_unique<WinUSBTransport>(m_usbDebug);
@@ -170,7 +170,7 @@ private:
     std::unique_ptr<USBTransport> m_transport;
     std::function<void(AstraDeviceManagerResponse)> m_responseCallback;
     std::string m_bootFirmwarePath;
-    std::shared_ptr<AstraBootFirmware> m_firmware;
+    std::shared_ptr<AstraBootImages> m_bootImages;
     std::shared_ptr<FlashImage> m_flashImage;
     std::string m_bootFirmwareId;
     std::string m_bootCommand;
@@ -235,7 +235,7 @@ private:
             astraDevice->SetStatusCallback(m_responseCallback);
 
             log(ASTRA_LOG_LEVEL_DEBUG) << "Calling boot" << endLog;
-            int ret = astraDevice->Boot(m_firmware);
+            int ret = astraDevice->Boot(m_bootImages);
             if (ret < 0) {
                 log(ASTRA_LOG_LEVEL_ERROR) << "Failed to boot device" << endLog;
                 ResponseCallback({ DeviceResponse{astraDevice->GetDeviceName(), ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, "", "Failed to Boot Device"}});

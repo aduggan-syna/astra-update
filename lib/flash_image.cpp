@@ -72,7 +72,7 @@ std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
         throw std::invalid_argument("Invalid Manifest");
     }
 
-    std::string bootFirmware = config["boot_firmware"];
+    std::string bootFirmware = config["boot_bootImages"];
     std::string chipName = config["chip"];
     std::transform(chipName.begin(), chipName.end(), chipName.begin(), ::tolower);
 

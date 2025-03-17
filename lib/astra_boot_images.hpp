@@ -11,12 +11,12 @@ enum AstraUbootConsole {
     ASTRA_UBOOT_CONSOLE_USB,
 };
 
-class AstraBootFirmware
+class AstraBootImages
 {
 public:
-    AstraBootFirmware(std::string path = "") : m_path{path}
+    AstraBootImages(std::string path = "") : m_path{path}
     {}
-    ~AstraBootFirmware();
+    ~AstraBootImages();
 
     bool Load();
 
