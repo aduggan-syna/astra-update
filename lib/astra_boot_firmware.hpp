@@ -18,7 +18,7 @@ public:
     {}
     ~AstraBootFirmware();
 
-    int Load();
+    bool Load();
 
     uint16_t GetVendorId() const { return m_vendorId; }
     uint16_t GetProductId() const { return m_productId; }
@@ -48,5 +48,5 @@ private:
     uint16_t m_productId;
 
 
-    int LoadManifest(std::string manifestPath);
+    bool LoadManifest(std::string manifestPath);
 };

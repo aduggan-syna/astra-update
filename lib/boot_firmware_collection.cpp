@@ -5,6 +5,19 @@
 #include "image.hpp"
 #include "astra_log.hpp"
 
+void BootFirmwareCollection::LoadFirmwareImage(const std::filesystem::path &path)
+{
+    ASTRA_LOG;
+
+    if (std::filesystem::exists(path / "manifest.yaml")) {
+        AstraBootFirmware firmware{path.string()};
+
+        if(firmware.Load()) {
+            m_firmwares.push_back(std::make_shared<AstraBootFirmware>(firmware));
+        }
+    }
+}
+
 void BootFirmwareCollection::Load()
 {
     ASTRA_LOG;
@@ -13,21 +26,15 @@ void BootFirmwareCollection::Load()
 
     std::filesystem::path dir(m_path);
 
-    if (std::filesystem::exists(dir) && std::filesystem::is_directory(dir)) {
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            if (std::filesystem::is_directory(entry.path())) {
-                log(ASTRA_LOG_LEVEL_DEBUG)<< "Found boot firmware directory: " << entry.path() << endLog;
-                if (std::filesystem::exists(entry.path() / "manifest.yaml")) {
-                    AstraBootFirmware firmware{entry.path().string()};
-                    
-                    int ret = firmware.Load();
-                    if (ret < 0) {
-                        continue;
-                    }
-
-                    m_firmwares.push_back(std::make_shared<AstraBootFirmware>(firmware));
+    if (std::filesystem::exists(dir)) {
+        if (std::filesystem::is_directory(dir)) {
+            for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+                if (std::filesystem::is_directory(entry.path())) {
+                    LoadFirmwareImage(entry.path());
                 }
             }
+        } else {
+            LoadFirmwareImage(dir);
         }
     } else {
         throw std::invalid_argument("Firmware directory " + m_path + " not found");

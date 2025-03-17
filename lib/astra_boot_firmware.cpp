@@ -8,7 +8,7 @@
 #include "image.hpp"
 #include "astra_log.hpp"
 
-int AstraBootFirmware::LoadManifest(std::string manifestPath)
+bool AstraBootFirmware::LoadManifest(std::string manifestPath)
 {
     ASTRA_LOG;
 
@@ -50,27 +50,27 @@ int AstraBootFirmware::LoadManifest(std::string manifestPath)
         log(ASTRA_LOG_LEVEL_INFO) << "uEnv support: " << (m_uEnvSupport ? "true" : "false") << endLog;
     } catch (const YAML::BadFile& e) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Unable to open the manifest file: " << e.what() << endLog;
-        return -1;
+        return false;
     } catch (const std::exception& e) {
         log(ASTRA_LOG_LEVEL_ERROR) << e.what() << endLog;
-        return -1;
+        return false;
     }
 
-    return 0;
+    return true;
 }
 
-int AstraBootFirmware::Load()
+bool AstraBootFirmware::Load()
 {
     ASTRA_LOG;
 
-    int ret;
+    bool ret;
 
     if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path)) {
         for (const auto& entry : std::filesystem::directory_iterator(m_path)) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Found file: " << entry.path() << endLog;
                 if (entry.path().filename().string() == "manifest.yaml") {
                     ret = LoadManifest(entry.path().string());
-                    if (ret < 0) {
+                    if (!ret) {
                         return ret;
                     }
                 } else {
@@ -82,7 +82,7 @@ int AstraBootFirmware::Load()
     m_directoryName = std::filesystem::path(m_path).filename().string();
     log(ASTRA_LOG_LEVEL_DEBUG) << "Loaded boot firmware: " << m_directoryName << endLog;
 
-    return 0;
+    return true;
 }
 
 AstraBootFirmware::~AstraBootFirmware()

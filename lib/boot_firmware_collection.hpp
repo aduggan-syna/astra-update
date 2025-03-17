@@ -22,4 +22,7 @@ public:
 private:
     std::string m_path;
     std::vector<std::shared_ptr<AstraBootFirmware>> m_firmwares;
+
+    void LoadFirmwareImage(const std::filesystem::path &path);
+
 };
