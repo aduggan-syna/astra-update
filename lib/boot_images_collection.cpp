@@ -22,7 +22,7 @@ void BootImagesCollection::Load()
 {
     ASTRA_LOG;
 
-    log(ASTRA_LOG_LEVEL_DEBUG) << "Loading boot bootImages from " << m_path << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Loading boot images from " << m_path << endLog;
 
     std::filesystem::path dir(m_path);
 
@@ -74,14 +74,14 @@ std::vector<std::shared_ptr<AstraBootImages>> BootImagesCollection::GetBootImage
 
     std::vector<std::shared_ptr<AstraBootImages>> bootImages;
 
-    for (const auto& bootImages : m_bootImages) {
-        if (bootImages->GetChipName() == chipName && bootImages->GetSecureBootVersion() == secureBoot
-          && bootImages->GetMemoryLayout() == memoryLayout)
+    for (const auto& bootImage : m_bootImages) {
+        if (bootImage->GetChipName() == chipName && bootImage->GetSecureBootVersion() == secureBoot
+          && bootImage->GetMemoryLayout() == memoryLayout)
         {
             if (boardName.empty()) {
-                bootImages.push_back(bootImages);
-            } else if (bootImages->GetBoardName() == boardName) {
-                bootImages.push_back(bootImages);
+                bootImages.push_back(bootImage);
+            } else if (bootImage->GetBoardName() == boardName) {
+                bootImages.push_back(bootImage);
             }
         }
     }
