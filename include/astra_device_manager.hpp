@@ -19,7 +19,7 @@ enum AstraDeviceManagerStatus {
 enum AstraDeviceManangerMode {
     ASTRA_DEVICE_MANAGER_MODE_BOOT,
     ASTRA_DEVICE_MANAGER_MODE_UPDATE,
-}
+};
 
 class AstraDeviceManager {
 public:
@@ -49,8 +49,8 @@ public:
     std::string GetLogFile() const;
 
 private:
-    class AstraUpdateImpl;
-    std::unique_ptr<AstraUpdateImpl> pImpl;
+    class AstraDeviceManagerImpl;
+    std::unique_ptr<AstraDeviceManagerImpl> pImpl;
 };
 
 struct ManagerResponse {
@@ -68,7 +68,7 @@ public:
         AstraDeviceManagerResponse(DeviceResponse deviceResponse)
         : response(deviceResponse) {}
 
-    bool IsUpdateResponse() const {
+    bool IsDeviceManagerResponse() const {
         return std::holds_alternative<ManagerResponse>(response);
     }
 

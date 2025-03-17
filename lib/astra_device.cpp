@@ -7,7 +7,7 @@
 #include <cstring>
 
 #include "astra_device.hpp"
-#include "astra_update.hpp"
+#include "astra_device_manager.hpp"
 #include "astra_boot_firmware.hpp"
 #include "flash_image.hpp"
 #include "astra_console.hpp"
@@ -18,8 +18,8 @@
 
 class AstraDevice::AstraDeviceImpl {
 public:
-    AstraDeviceImpl(std::unique_ptr<USBDevice> device, const std::string &tempDir)
-        : m_usbDevice{std::move(device)}, m_tempDir{tempDir}
+    AstraDeviceImpl(std::unique_ptr<USBDevice> device, const std::string &tempDir, const std::string &bootCommand)
+        : m_usbDevice{std::move(device)}, m_tempDir{tempDir}, m_bootCommand{bootCommand}
     {
         ASTRA_LOG;
     }
@@ -31,7 +31,7 @@ public:
         Close();
     }
 
-    void SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback)
+    void SetStatusCallback(std::function<void(AstraDeviceManagerResponse)> statusCallback)
     {
         ASTRA_LOG;
 
@@ -79,6 +79,15 @@ public:
         m_sizeRequestImage = std::make_unique<Image>(m_deviceDir + "/" + m_sizeRequestImageFilename, ASTRA_IMAGE_TYPE_UPDATE_EMMC);
         m_uEnvImage = std::make_unique<Image>(m_deviceDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
 
+        if (m_uEnvSupport) {
+            WriteUEnvFile(m_bootCommand);
+
+            {
+                std::lock_guard<std::mutex> lock(m_imageMutex);
+                m_images.push_back(*m_uEnvImage);
+            }
+        }
+
         m_status = ASTRA_DEVICE_STATUS_OPENED;
 
         std::vector<Image> firmwareImages = firmware->GetImages();
@@ -118,20 +127,8 @@ public:
             std::lock_guard<std::mutex> lock(m_imageMutex);
             m_images.insert(m_images.end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         }
-        if (m_uEnvSupport) {
-            std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand();
-            std::ofstream uEnvFile(m_deviceDir + "/" + m_uEnvFilename);
-            if (!uEnvFile) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
-                return -1;
-            }
-            uEnvFile << uEnv;
-            uEnvFile.close();
-            {
-                std::lock_guard<std::mutex> lock(m_imageMutex);
-                m_images.push_back(*m_uEnvImage);
-            }
-        } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
+
+        if (!m_uEnvSupport && m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
             if (m_console->WaitForPrompt()) {
                 SendToConsole(flashImage->GetFlashCommand() + "\n");
             }
@@ -233,7 +230,7 @@ public:
 private:
     std::unique_ptr<USBDevice> m_usbDevice;
     AstraDeviceStatus m_status;
-    std::function<void(AstraUpdateResponse)> m_statusCallback;
+    std::function<void(AstraDeviceManagerResponse)> m_statusCallback;
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_shutdown{false};
     bool m_uEnvSupport = false;
@@ -274,6 +271,7 @@ private:
     std::unique_ptr<Image> m_usbPathImage;
     std::unique_ptr<Image> m_sizeRequestImage;
     std::unique_ptr<Image> m_uEnvImage;
+    std::string m_bootCommand;
 
     int m_imageCount = 0;
 
@@ -588,14 +586,30 @@ private:
 
         return 0;
     }
+
+    bool WriteUEnvFile(std::string bootCommand)
+    {
+        ASTRA_LOG;
+
+        std::string uEnv = "bootcmd=" + bootCommand;
+        std::ofstream uEnvFile(m_deviceDir + "/" + m_uEnvFilename);
+        if (!uEnvFile) {
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
+            return false;
+        }
+        uEnvFile << uEnv;
+        uEnvFile.close();
+
+        return true;
+    }
 };
 
-AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device, const std::string &tempDir) :
-    pImpl{std::make_unique<AstraDeviceImpl>(std::move(device), tempDir)} {}
+AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device, const std::string &tempDir, const std::string &bootCommand) :
+    pImpl{std::make_unique<AstraDeviceImpl>(std::move(device), tempDir, bootCommand)} {}
 
 AstraDevice::~AstraDevice() = default;
 
-void AstraDevice::SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback) {
+void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceManagerResponse)> statusCallback) {
     pImpl->SetStatusCallback(statusCallback);
 }
 

@@ -28,4 +28,5 @@ include_directories(../include)
 include_directories(${CMAKE_BINARY_DIR}/cxxopts/include)
 include_directories(${CMAKE_BINARY_DIR}/indicators/include)
 
+target_link_libraries(astra-update astraupdate)
 target_link_libraries(astra-boot astraupdate)

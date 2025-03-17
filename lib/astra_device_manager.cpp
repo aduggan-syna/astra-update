@@ -22,11 +22,11 @@ public:
     AstraDeviceManagerImpl(std::shared_ptr<FlashImage> flashImage,
         std::string bootFirmwarePath,
         std::function<void(AstraDeviceManagerResponse)> responseCallback,
-        bool updateContinuously,
+        bool runContinuously,
         AstraLogLevel minLogLevel, const std::string &logPath,
         const std::string &tempDir, bool usbDebug)
         : m_flashImage(flashImage), m_bootFirmwarePath{bootFirmwarePath},
-        m_responseCallback{responseCallback}, m_updateContinuously{updateContinuously}, m_usbDebug{usbDebug}
+        m_responseCallback{responseCallback}, m_runContinuously{runContinuously}, m_usbDebug{usbDebug}
     {
         InitializeLogging(minLogLevel, logPath, tempDir);
 
@@ -41,17 +41,19 @@ public:
             log(ASTRA_LOG_LEVEL_INFO) << "Boot firmware ID: " << m_bootFirmwareId << endLog;
         }
 
+        m_bootCommand = m_flashImage->GetFlashCommand();
+
         log(ASTRA_LOG_LEVEL_INFO) << "final image: " << m_flashImage->GetFinalImage() << endLog;
     }
 
     AstraDeviceManagerImpl(std::string bootFirmwardId,
-        std::string bootCommand, std:string bootFirmwarePath,
+        std::string bootCommand, std::string bootFirmwarePath,
         std::function<void(AstraDeviceManagerResponse)> responseCallback,
-        bool updateContinuously,
+        bool runContinuously,
         AstraLogLevel minLogLevel, const std::string &logPath,
         const std::string &tempDir, bool usbDebug = false)
         : m_bootFirmwareId(bootFirmwardId), m_bootCommand{bootCommand}, m_bootFirmwarePath{bootFirmwarePath},
-        m_responseCallback{responseCallback}, m_updateContinuously{updateContinuously}, m_usbDebug{usbDebug}
+        m_responseCallback{responseCallback}, m_runContinuously{runContinuously}, m_usbDebug{usbDebug}
     {
         InitializeLogging(minLogLevel, logPath, tempDir);
 
@@ -111,7 +113,7 @@ public:
         bootFirmwareDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_firmware->GetMemoryLayout()) + "\n";
         bootFirmwareDescription += "    U-Boot Console: " + std::string(m_firmware->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
         bootFirmwareDescription += "    uEnt.txt Support: " + std::string(m_firmware->GetUEnvSupport() ? "enabled" : "disabled");
-        ResponseCallback({ManagerResponse{ASTRA_UPDATE_STATUS_INFO, bootFirmwareDescription}});
+        ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_INFO, bootFirmwareDescription}});
 
         uint16_t vendorId = m_firmware->GetVendorId();
         uint16_t productId = m_firmware->GetProductId();
@@ -175,7 +177,7 @@ private:
     std::string m_tempDir;
     AstraDeviceManangerMode m_managerMode;
     bool m_removeTempOnClose = false;
-    bool m_updateContinuously = false;
+    bool m_runContinuously = false;
     bool m_deviceFound = false;
     bool m_usbDebug = false;
     bool m_failureReported = false;
@@ -199,7 +201,7 @@ private:
 
         m_modifiedLogPath = logPath;
         if (logPath == "") {
-            m_modifiedLogPath = m_tempDir + "/astra_update.log";
+            m_modifiedLogPath = m_tempDir + "/astra_device_manager.log";
         }
         AstraLogStore::getInstance().Open(m_modifiedLogPath, minLogLevel);
     }
@@ -207,8 +209,8 @@ private:
     void ResponseCallback(AstraDeviceManagerResponse response)
     {
         // If a failure is reported then retain the temp directory containing logs
-        if (response.IsManagerResponse()) {
-            if (response.GetManagerResponse().m_updateStatus == ASTRA_DEVICE_MANAGER_STATUS_FAILURE) {
+        if (response.IsDeviceManagerResponse()) {
+            if (response.GetDeviceManagerResponse().m_managerStatus == ASTRA_DEVICE_MANAGER_STATUS_FAILURE) {
                 m_removeTempOnClose = false;
                 m_failureReported = true;
             }
@@ -240,7 +242,7 @@ private:
                 return;
             }
 
-            if (m_manageMode == ASTRA_DEVICE_MANAGER_MODE_UPDATE) {
+            if (m_managerMode == ASTRA_DEVICE_MANAGER_MODE_UPDATE) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "calling from Update" << endLog;
                 ret = astraDevice->Update(m_flashImage);
                 if (ret < 0) {
@@ -259,7 +261,7 @@ private:
             log(ASTRA_LOG_LEVEL_DEBUG) << "returned from WaitForCompletion" << endLog;
             AstraDeviceStatus status = astraDevice->GetDeviceStatus();
             log(ASTRA_LOG_LEVEL_DEBUG) << "Device status: " << AstraDevice::AstraDeviceStatusToString(status) << endLog;
-            if (status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE && !m_updateContinuously) {
+            if (status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE && !m_runContinuously) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down Astra Device Manager" << endLog;
                 ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_SHUTDOWN, "Astra Device Manager shutting down"}});
             }
@@ -273,7 +275,7 @@ private:
         ASTRA_LOG;
 
         log(ASTRA_LOG_LEVEL_DEBUG) << "Device added AstraDeviceManagerImpl::DeviceAddedCallback" << endLog;
-        std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device), m_tempDir);
+        std::shared_ptr<AstraDevice> astraDevice = std::make_shared<AstraDevice>(std::move(device), m_tempDir, m_bootCommand);
 
         std::lock_guard<std::mutex> lock(m_devicesMutex);
         m_deviceFound = true;
@@ -287,25 +289,21 @@ private:
 AstraDeviceManager::AstraDeviceManager(std::shared_ptr<FlashImage> flashImage,
     std::string bootFirmwarePath,
     std::function<void(AstraDeviceManagerResponse)> responseCallback,
-    bool updateContinuously,
+    bool runContinuously,
     AstraLogLevel minLogLevel, const std::string &logPath,
-    const std::string &tempDir,
-    bool usbDebug)
+    const std::string &tempDir, bool usbDebug)
     : pImpl{std::make_unique<AstraDeviceManagerImpl>(flashImage, bootFirmwarePath, responseCallback,
-        updateContinuously, minLogLevel, logPath, tempDir, usbDebug)}
+        runContinuously, minLogLevel, logPath, tempDir, usbDebug)}
 {}
 
 AstraDeviceManager::AstraDeviceManager(std::string bootFirmwardId,
-    std::string bootCommand,
-    std::string bootFirmwarePath,
+    std::string bootCommand, std::string bootFirmwarePath,
     std::function<void(AstraDeviceManagerResponse)> responseCallback,
-    bool updateContinuously = false,
-    AstraLogLevel minLogLevel = ASTRA_LOG_LEVEL_WARNING,
-    const std::string &logPath = "",
-    const std::string &tempDir = "",
-    bool usbDebug = false)
+    bool runContinuously,
+    AstraLogLevel minLogLevel, const std::string &logPath,
+    const std::string &tempDir, bool usbDebug)
     : pImpl{std::make_unique<AstraDeviceManagerImpl>(bootFirmwardId, bootCommand, bootFirmwarePath, responseCallback,
-        updateContinuously, minLogLevel, logPath, tempDir, usbDebug)}
+        runContinuously, minLogLevel, logPath, tempDir, usbDebug)}
 {}
 
 AstraDeviceManager::~AstraDeviceManager() = default;

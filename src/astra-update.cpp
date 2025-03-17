@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <csignal>
 
-#include "astra_update.hpp"
+#include "astra_device_manager.hpp"
 #include "flash_image.hpp"
 #include "astra_device.hpp"
 
@@ -30,16 +30,16 @@ struct DeviceImageKeyHash {
     }
 };
 
-std::queue<AstraUpdateResponse> updateResponses;
-std::condition_variable updateResponsesCV;
-std::mutex updateResponsesMutex;
+std::queue<AstraDeviceManagerResponse> managerResponses;
+std::condition_variable managerResponsesCV;
+std::mutex managerResponsesMutex;
 std::atomic<bool> running{true};
 
-void AstraUpdateResponseCallback(AstraUpdateResponse response)
+void AstraDeviceManagerResponseCallback(AstraDeviceManagerResponse response)
 {
-    std::lock_guard<std::mutex> lock(updateResponsesMutex);
-    updateResponses.push(response);
-    updateResponsesCV.notify_one();
+    std::lock_guard<std::mutex> lock(managerResponsesMutex);
+    managerResponses.push(response);
+    managerResponsesCV.notify_one();
 }
 
 void UpdateProgressBars(DeviceResponse &deviceResponse,
@@ -87,7 +87,7 @@ void SignalHandler(int signal)
 {
     if (signal == SIGINT) {
         running.store(false);
-        updateResponsesCV.notify_all();
+        managerResponsesCV.notify_all();
     }
 }
 
@@ -191,10 +191,10 @@ int main(int argc, char* argv[])
     std::cout << "    Memory Layout: " << AstraMemoryLayoutToString(flashImage->GetMemoryLayout()) << std::endl;
     std::cout << "    Boot Firmware ID: " << flashImage->GetBootFirmwareId() << "\n" << std::endl;
 
-    AstraUpdate update(flashImage, bootFirmwarePath, AstraUpdateResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
+    AstraDeviceManager deviceManager(flashImage, bootFirmwarePath, AstraDeviceManagerResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
 
     try {
-        update.Init();
+        deviceManager.Init();
      } catch (const std::exception& e) {
         std::cerr << "Failed to initialize update: " << e.what() << std::endl;
         return -1;
@@ -204,27 +204,27 @@ int main(int argc, char* argv[])
 
     if (running.load()) {
         while (true) {
-            std::unique_lock<std::mutex> lock(updateResponsesMutex);
-            updateResponsesCV.wait(lock, []{ return !updateResponses.empty() || !running.load(); });
+            std::unique_lock<std::mutex> lock(managerResponsesMutex);
+            managerResponsesCV.wait(lock, []{ return !managerResponses.empty() || !running.load(); });
 
             if (!running.load()) {
                 break;
             }
 
-            auto status = updateResponses.front();
-            updateResponses.pop();
+            auto status = managerResponses.front();
+            managerResponses.pop();
 
-            if (status.IsUpdateResponse()) {
-                auto updateResponse = status.GetUpdateResponse();
-                if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_INFO) {
-                    std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
-                } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_SHUTDOWN) {
+            if (status.IsDeviceManagerResponse()) {
+                auto managerResponse = status.GetDeviceManagerResponse();
+                if (managerResponse.m_managerStatus == ASTRA_DEVICE_MANAGER_STATUS_INFO) {
+                    std::cout << managerResponse.m_managerMessage << "\n" << std::endl;
+                } else if (managerResponse.m_managerStatus == ASTRA_DEVICE_MANAGER_STATUS_SHUTDOWN) {
                     break;
-                } else if (updateResponse.m_updateStatus == ASTRA_UPDATE_STATUS_START) {
-                    std::cout << updateResponse.m_updateMessage << "\n" << std::endl;
+                } else if (managerResponse.m_managerStatus == ASTRA_DEVICE_MANAGER_STATUS_START) {
+                    std::cout << managerResponse.m_managerMessage << "\n" << std::endl;
                 } else {
-                    std::cout << "Update status: " << updateResponse.m_updateStatus
-                            << " Message: " << updateResponse.m_updateMessage << std::endl;
+                    std::cout << "Device Manager status: " << managerResponse.m_managerStatus
+                            << " Message: " << managerResponse.m_managerMessage << std::endl;
                 }
             } else if (status.IsDeviceResponse()) {
                 auto deviceResponse = status.GetDeviceResponse();
@@ -258,8 +258,8 @@ int main(int argc, char* argv[])
     }
     indicators::show_console_cursor(true);
 
-    if (update.Shutdown()) {
-        std::cerr << "Error reported: please check the log file for more information: " << update.GetLogFile() << std::endl;
+    if (deviceManager.Shutdown()) {
+        std::cerr << "Error reported: please check the log file for more information: " << deviceManager.GetLogFile() << std::endl;
         return -1;
     }
 
