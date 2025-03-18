@@ -115,7 +115,14 @@ int main(int argc, char* argv[])
 
     options.parse_positional({"boot-image"});
 
-    auto result = options.parse(argc, argv);
+    cxxopts::ParseResult result;
+    try {
+        result = options.parse(argc, argv);
+    } catch (const cxxopts::OptionException& e) {
+        std::cerr << "Error parsing options: " << e.what() << std::endl;
+        std::cerr << options.help() << std::endl;
+        return -1;
+    }
 
     if (result.count("help")) {
         std::cout << options.help() << std::endl;
