@@ -13,6 +13,8 @@
 #include "flash_image.hpp"
 #include "astra_device.hpp"
 
+const std::string astraUpdateVersion = "1.0.0";
+
 // Define a struct to hold the two strings
 struct DeviceImageKey {
     std::string deviceName;
@@ -113,7 +115,8 @@ int main(int argc, char* argv[])
         ("s,secure-boot", "Secure boot version", cxxopts::value<std::string>()->default_value("genx"))
         ("m,memory-layout", "Memory layout", cxxopts::value<std::string>())
         ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"))
-        ("S,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"));
+        ("S,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"))
+        ("v,version", "Print version");
 
     cxxopts::ParseResult result;
     try {
@@ -126,6 +129,12 @@ int main(int argc, char* argv[])
 
     if (result.count("help")) {
         std::cout << options.help() << std::endl;
+        return 0;
+    }
+
+    if (result.count("version")) {
+        std::cout << "astra-update: v" << astraUpdateVersion <<
+            " (lib v" << AstraDeviceManager::GetVersion() << ")" << std::endl;
         return 0;
     }
 
