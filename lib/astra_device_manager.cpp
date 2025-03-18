@@ -79,7 +79,7 @@ public:
             std::vector<std::shared_ptr<AstraBootImage>> bootImages = bootImageCollection.GetBootImagesForChip(m_flashImage->GetChipName(),
                 m_flashImage->GetSecureBootVersion(), m_flashImage->GetMemoryLayout(), m_flashImage->GetBoardName());
             if (bootImages.size() == 0) {
-                throw std::runtime_error("No boot bootImages found for chip: " + m_flashImage->GetChipName());
+                throw std::runtime_error("No boot image found for chip: " + m_flashImage->GetChipName());
             } else if (bootImages.size() > 1) {
                 m_bootImage = bootImages[0];
                 for (const auto& bootImage : bootImages) {
@@ -105,7 +105,7 @@ public:
         }
 
         if (m_bootImage == nullptr) {
-            throw std::runtime_error("Boot bootImages not found");
+            throw std::runtime_error("Boot image not found");
         }
 
         std::string bootImageDescription = "Boot Image: " + m_bootImage->GetChipName() + " " + m_bootImage->GetBoardName() + " (" + m_bootImage->GetID() + ")\n";
