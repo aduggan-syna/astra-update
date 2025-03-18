@@ -75,26 +75,34 @@ public:
         imageFile << m_usbDevice->GetUSBPath();
         imageFile.close();
 
-        m_usbPathImage = std::make_unique<Image>(m_deviceDir + "/"  + m_usbPathImageFilename, ASTRA_IMAGE_TYPE_BOOT);
+        Image usbPathImage(m_deviceDir + "/"  + m_usbPathImageFilename, ASTRA_IMAGE_TYPE_BOOT);
         m_sizeRequestImage = std::make_unique<Image>(m_deviceDir + "/" + m_sizeRequestImageFilename, ASTRA_IMAGE_TYPE_UPDATE_EMMC);
-        m_uEnvImage = std::make_unique<Image>(m_deviceDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
-
-        if (m_uEnvSupport) {
-            WriteUEnvFile(m_bootCommand);
-
-            {
-                std::lock_guard<std::mutex> lock(m_imageMutex);
-                m_images.push_back(*m_uEnvImage);
-            }
-        }
 
         m_status = ASTRA_DEVICE_STATUS_OPENED;
 
-        std::vector<Image> bootImagesImages = bootImage->GetImages();
+        std::vector<Image> bootImageSubimages = bootImage->GetImages();
 
         {
             std::lock_guard<std::mutex> lock(m_imageMutex);
-            m_images.insert(m_images.end(), bootImagesImages.begin(), bootImagesImages.end());
+            m_images.insert(m_images.end(), bootImageSubimages.begin(), bootImageSubimages.end());
+
+            auto it = std::find_if(m_images.begin(), m_images.end(), [this](const Image &img) {
+                return img.GetName() == m_uEnvFilename;
+            });
+
+            // If uEnv.txt is not in the image list and uEnv is supported
+            // then create a uEnv image in the temp directory using the boot command
+            if (it == m_images.end() && m_uEnvSupport && !m_bootCommand.empty()) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Adding uEnv.txt to image list" << endLog;
+                Image uEnvImage(m_deviceDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
+
+                WriteUEnvFile(m_bootCommand);
+
+                m_images.push_back(uEnvImage);
+            }
+
+            m_images.push_back(usbPathImage);
+            m_images.push_back(*m_sizeRequestImage);
         }
 
         m_running.store(true);
@@ -268,9 +276,7 @@ private:
     const std::string m_sizeRequestImageFilename = "07_IMAGE";
     const std::string m_uEnvFilename = "uEnv.txt";
     std::string m_finalUpdateImage;
-    std::unique_ptr<Image> m_usbPathImage;
     std::unique_ptr<Image> m_sizeRequestImage;
-    std::unique_ptr<Image> m_uEnvImage;
     std::string m_bootCommand;
 
     int m_imageCount = 0;
@@ -527,14 +533,8 @@ private:
 
                 Image *image;
                 if (it == m_images.end()) {
-                    if (m_requestedImageName == m_sizeRequestImageFilename) {
-                        image = m_sizeRequestImage.get();
-                    } else if (m_requestedImageName == m_usbPathImageFilename) {
-                        image = m_usbPathImage.get();
-                    } else {
-                        log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
-                        return -1;
-                    }
+                    log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
+                    return -1;
                 } else {
                     image = &(*it);
                 }

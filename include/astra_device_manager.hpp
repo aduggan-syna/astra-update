@@ -23,18 +23,7 @@ enum AstraDeviceManangerMode {
 
 class AstraDeviceManager {
 public:
-    AstraDeviceManager(std::shared_ptr<FlashImage> flashImage,
-        std::string bootImagesPath,
-        std::function<void(AstraDeviceManagerResponse)> responseCallback,
-        bool updateContinuously = false,
-        AstraLogLevel minLogLevel = ASTRA_LOG_LEVEL_WARNING,
-        const std::string &logPath = "",
-        const std::string &tempDir = "",
-        bool usbDebug = false
-    );
-    AstraDeviceManager(std::string bootImagePath,
-        std::string bootCommand,
-        std::function<void(AstraDeviceManagerResponse)> responseCallback,
+    AstraDeviceManager(std::function<void(AstraDeviceManagerResponse)> responseCallback,
         bool updateContinuously = false,
         AstraLogLevel minLogLevel = ASTRA_LOG_LEVEL_WARNING,
         const std::string &logPath = "",
@@ -43,7 +32,8 @@ public:
     );
     ~AstraDeviceManager();
 
-    void Init();
+    void Update(std::shared_ptr<FlashImage> flashImage, std::string bootImagePath);
+    void Boot(std::string bootImagesPath, std::string bootCommand = "");
     bool Shutdown();
     std::string GetLogFile() const;
 

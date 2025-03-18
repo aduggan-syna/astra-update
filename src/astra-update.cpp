@@ -115,7 +115,14 @@ int main(int argc, char* argv[])
         ("u,usb-debug", "Enable USB debug logging", cxxopts::value<bool>()->default_value("false"))
         ("S,simple-progress", "Disable progress bars and report progress messages", cxxopts::value<bool>()->default_value("false"));
 
-    auto result = options.parse(argc, argv);
+    cxxopts::ParseResult result;
+    try {
+        result = options.parse(argc, argv);
+    } catch (const cxxopts::OptionException& e) {
+        std::cerr << "Error parsing options: " << e.what() << std::endl;
+        std::cerr << options.help() << std::endl;
+        return -1;
+    }
 
     if (result.count("help")) {
         std::cout << options.help() << std::endl;
@@ -191,10 +198,10 @@ int main(int argc, char* argv[])
     std::cout << "    Memory Layout: " << AstraMemoryLayoutToString(flashImage->GetMemoryLayout()) << std::endl;
     std::cout << "    Boot Image ID: " << flashImage->GetBootImageId() << "\n" << std::endl;
 
-    AstraDeviceManager deviceManager(flashImage, bootImagesPath, AstraDeviceManagerResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
+    AstraDeviceManager deviceManager(AstraDeviceManagerResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
 
     try {
-        deviceManager.Init();
+        deviceManager.Update(flashImage, bootImagesPath);
      } catch (const std::exception& e) {
         std::cerr << "Failed to initialize update: " << e.what() << std::endl;
         return -1;

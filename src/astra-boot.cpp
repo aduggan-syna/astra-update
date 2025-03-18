@@ -174,10 +174,10 @@ int main(int argc, char* argv[])
 
     std::cout << "Astra Boot\n" << std::endl;
 
-    AstraDeviceManager deviceManager(bootImagePath, "", AstraDeviceManagerResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
+    AstraDeviceManager deviceManager(AstraDeviceManagerResponseCallback, continuous, logLevel, logFilePath, tempDir, usbDebug);
 
     try {
-        deviceManager.Init();
+        deviceManager.Boot(bootImagePath);
      } catch (const std::exception& e) {
         std::cerr << "Failed to initialize update: " << e.what() << std::endl;
         return -1;

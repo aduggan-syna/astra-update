@@ -10,10 +10,10 @@ void BootImageCollection::LoadBootImage(const std::filesystem::path &path)
     ASTRA_LOG;
 
     if (std::filesystem::exists(path / "manifest.yaml")) {
-        AstraBootImage bootImages{path.string()};
+        AstraBootImage bootImage{path.string()};
 
-        if(bootImages.Load()) {
-            m_bootImages.push_back(std::make_shared<AstraBootImage>(bootImages));
+        if(bootImage.Load()) {
+            m_bootImages.push_back(std::make_shared<AstraBootImage>(bootImage));
         }
     }
 }

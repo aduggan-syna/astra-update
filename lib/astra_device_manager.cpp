@@ -19,65 +19,53 @@
 
 class AstraDeviceManager::AstraDeviceManagerImpl {
 public:
-    AstraDeviceManagerImpl(std::shared_ptr<FlashImage> flashImage,
-        std::string bootImagesPath,
-        std::function<void(AstraDeviceManagerResponse)> responseCallback,
+    AstraDeviceManagerImpl(std::function<void(AstraDeviceManagerResponse)> responseCallback,
         bool runContinuously,
         AstraLogLevel minLogLevel, const std::string &logPath,
         const std::string &tempDir, bool usbDebug)
-        : m_flashImage(flashImage), m_bootImagesPath{bootImagesPath},
-        m_responseCallback{responseCallback}, m_runContinuously{runContinuously}, m_usbDebug{usbDebug}
+        : m_responseCallback{responseCallback}, m_runContinuously{runContinuously}, m_usbDebug{usbDebug}
     {
-        InitializeLogging(minLogLevel, logPath, tempDir);
-
-        ASTRA_LOG;
-
-        m_managerMode = ASTRA_DEVICE_MANAGER_MODE_UPDATE;
-    
-        m_bootImageId = m_flashImage->GetBootImageId();
-        if (m_bootImageId.empty()) {
-            log(ASTRA_LOG_LEVEL_INFO) << "No boot bootImages ID specified in the flash image" << endLog;
+        if (tempDir.empty()) {
+            m_tempDir = MakeTempDirectory();
+            if (m_tempDir.empty()) {
+                m_tempDir = "./";
+            }
+            m_removeTempOnClose = true;
         } else {
-            log(ASTRA_LOG_LEVEL_INFO) << "Boot bootImages ID: " << m_bootImageId << endLog;
+            m_tempDir = tempDir;
+            std::filesystem::create_directories(m_tempDir);
         }
 
-        m_bootCommand = m_flashImage->GetFlashCommand();
-
-        log(ASTRA_LOG_LEVEL_INFO) << "final image: " << m_flashImage->GetFinalImage() << endLog;
-    }
-
-    AstraDeviceManagerImpl(std::string bootImagePath,
-        std::string bootCommand,
-        std::function<void(AstraDeviceManagerResponse)> responseCallback,
-        bool runContinuously,
-        AstraLogLevel minLogLevel, const std::string &logPath,
-        const std::string &tempDir, bool usbDebug = false)
-        :  m_bootImagesPath{bootImagePath}, m_bootCommand{bootCommand},
-        m_responseCallback{responseCallback}, m_runContinuously{runContinuously}, m_usbDebug{usbDebug}
-    {
-        InitializeLogging(minLogLevel, logPath, tempDir);
+        m_modifiedLogPath = logPath;
+        if (logPath == "") {
+            m_modifiedLogPath = m_tempDir + "/astra_device_manager.log";
+        }
+        AstraLogStore::getInstance().Open(m_modifiedLogPath, minLogLevel);
 
         ASTRA_LOG;
-
-        m_managerMode = ASTRA_DEVICE_MANAGER_MODE_BOOT;
     }
 
-    void Init()
+    void Update(std::shared_ptr<FlashImage> flashImage, std::string bootImagesPath)
     {
         ASTRA_LOG;
 
-        BootImageCollection bootImageCollection = BootImageCollection(m_bootImagesPath);
+        m_flashImage = flashImage;
+        m_bootCommand = flashImage->GetFlashCommand();
+
+        m_managerMode = ASTRA_DEVICE_MANAGER_MODE_UPDATE;
+
+        BootImageCollection bootImageCollection = BootImageCollection(bootImagesPath);
         bootImageCollection.Load();
 
-        if (m_bootImageId.empty()) {
-            // No boot bootImages specified.
-            // Try to find the best bootImages based on other properties
+        if (m_flashImage->GetBootImageId().empty()) {
+            // No boot images specified.
+            // Try to find the best boot image based on other properties
             if (m_flashImage->GetChipName().empty()) {
-                throw std::runtime_error("Chip name and boot bootImages ID missing!");
+                throw std::runtime_error("Chip name and boot bootImage ID missing!");
             }
 
             std::vector<std::shared_ptr<AstraBootImage>> bootImages = bootImageCollection.GetBootImagesForChip(m_flashImage->GetChipName(),
-                m_flashImage->GetSecureBootVersion(), m_flashImage->GetMemoryLayout(), m_flashImage->GetBoardName());
+            m_flashImage->GetSecureBootVersion(), m_flashImage->GetMemoryLayout(), m_flashImage->GetBoardName());
             if (bootImages.size() == 0) {
                 throw std::runtime_error("No boot image found for chip: " + m_flashImage->GetChipName());
             } else if (bootImages.size() > 1) {
@@ -104,37 +92,24 @@ public:
             m_bootImage = std::make_shared<AstraBootImage>(bootImageCollection.GetBootImage(m_flashImage->GetBootImageId()));
         }
 
-        if (m_bootImage == nullptr) {
-            throw std::runtime_error("Boot image not found");
+        Init();
+    }
+
+    void Boot(std::string bootImagePath, std::string bootCommand)
+    {
+        ASTRA_LOG;
+
+        m_managerMode = ASTRA_DEVICE_MANAGER_MODE_BOOT;
+        m_bootCommand = bootCommand;
+
+        AstraBootImage bootImage{bootImagePath};
+        if (!bootImage.Load()) {
+            throw std::runtime_error("Failed to load boot image");
         }
 
-        std::string bootImageDescription = "Boot Image: " + m_bootImage->GetChipName() + " " + m_bootImage->GetBoardName() + " (" + m_bootImage->GetID() + ")\n";
-        bootImageDescription += "    Secure Boot: " + AstraSecureBootVersionToString(m_bootImage->GetSecureBootVersion()) + "\n";
-        bootImageDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_bootImage->GetMemoryLayout()) + "\n";
-        bootImageDescription += "    U-Boot Console: " + std::string(m_bootImage->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
-        bootImageDescription += "    uEnt.txt Support: " + std::string(m_bootImage->GetUEnvSupport() ? "enabled" : "disabled");
-        ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_INFO, bootImageDescription}});
+        m_bootImage = std::make_shared<AstraBootImage>(bootImage);
 
-        uint16_t vendorId = m_bootImage->GetVendorId();
-        uint16_t productId = m_bootImage->GetProductId();
-
-#if PLATFORM_WINDOWS
-        m_transport = std::make_unique<WinUSBTransport>(m_usbDebug);
-#else
-        m_transport = std::make_unique<USBTransport>(m_usbDebug);
-#endif
-
-        if (m_transport->Init(vendorId, productId,
-                std::bind(&AstraDeviceManagerImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
-        {
-            throw std::runtime_error("Failed to initialize USB transport");
-        }
-
-        log(ASTRA_LOG_LEVEL_DEBUG) << "USB transport initialized successfully" << endLog;
-
-        std::ostringstream os;
-        os << "Waiting for Astra Device (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << vendorId << ":" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << productId << ")";
-        ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_START, os.str()}});
+        Init();
     }
 
     bool Shutdown()
@@ -169,10 +144,8 @@ public:
 private:
     std::unique_ptr<USBTransport> m_transport;
     std::function<void(AstraDeviceManagerResponse)> m_responseCallback;
-    std::string m_bootImagesPath;
     std::shared_ptr<AstraBootImage> m_bootImage;
     std::shared_ptr<FlashImage> m_flashImage;
-    std::string m_bootImageId;
     std::string m_bootCommand;
     std::string m_tempDir;
     AstraDeviceManangerMode m_managerMode;
@@ -186,24 +159,41 @@ private:
     std::vector<std::shared_ptr<AstraDevice>> m_devices;
     std::mutex m_devicesMutex;
 
-    void InitializeLogging(AstraLogLevel minLogLevel, const std::string &logPath, const std::string &tempDir)
+    void Init()
     {
-        if (tempDir.empty()) {
-            m_tempDir = MakeTempDirectory();
-            if (m_tempDir.empty()) {
-                m_tempDir = "./";
-            }
-            m_removeTempOnClose = true;
-        } else {
-            m_tempDir = tempDir;
-            std::filesystem::create_directories(m_tempDir);
+        ASTRA_LOG;
+
+        if (m_bootImage == nullptr) {
+            throw std::runtime_error("Boot image not found");
         }
 
-        m_modifiedLogPath = logPath;
-        if (logPath == "") {
-            m_modifiedLogPath = m_tempDir + "/astra_device_manager.log";
+        std::string bootImageDescription = "Boot Image: " + m_bootImage->GetChipName() + " " + m_bootImage->GetBoardName() + " (" + m_bootImage->GetID() + ")\n";
+        bootImageDescription += "    Secure Boot: " + AstraSecureBootVersionToString(m_bootImage->GetSecureBootVersion()) + "\n";
+        bootImageDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_bootImage->GetMemoryLayout()) + "\n";
+        bootImageDescription += "    U-Boot Console: " + std::string(m_bootImage->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
+        bootImageDescription += "    uEnt.txt Support: " + std::string(m_bootImage->GetUEnvSupport() ? "enabled" : "disabled");
+        ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_INFO, bootImageDescription}});
+
+        uint16_t vendorId = m_bootImage->GetVendorId();
+        uint16_t productId = m_bootImage->GetProductId();
+
+#if PLATFORM_WINDOWS
+        m_transport = std::make_unique<WinUSBTransport>(m_usbDebug);
+#else
+        m_transport = std::make_unique<USBTransport>(m_usbDebug);
+#endif
+
+        if (m_transport->Init(vendorId, productId,
+                std::bind(&AstraDeviceManagerImpl::DeviceAddedCallback, this, std::placeholders::_1)) < 0)
+        {
+            throw std::runtime_error("Failed to initialize USB transport");
         }
-        AstraLogStore::getInstance().Open(m_modifiedLogPath, minLogLevel);
+
+        log(ASTRA_LOG_LEVEL_DEBUG) << "USB transport initialized successfully" << endLog;
+
+        std::ostringstream os;
+        os << "Waiting for Astra Device (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << vendorId << ":" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << productId << ")";
+        ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_START, os.str()}});
     }
 
     void ResponseCallback(AstraDeviceManagerResponse response)
@@ -286,30 +276,24 @@ private:
 
 };
 
-AstraDeviceManager::AstraDeviceManager(std::shared_ptr<FlashImage> flashImage,
-    std::string bootImagesPath,
-    std::function<void(AstraDeviceManagerResponse)> responseCallback,
+AstraDeviceManager::AstraDeviceManager(std::function<void(AstraDeviceManagerResponse)> responseCallback,
     bool runContinuously,
     AstraLogLevel minLogLevel, const std::string &logPath,
     const std::string &tempDir, bool usbDebug)
-    : pImpl{std::make_unique<AstraDeviceManagerImpl>(flashImage, bootImagesPath, responseCallback,
-        runContinuously, minLogLevel, logPath, tempDir, usbDebug)}
-{}
-
-AstraDeviceManager::AstraDeviceManager(std::string bootImagesPath, std::string bootCommand,
-    std::function<void(AstraDeviceManagerResponse)> responseCallback,
-    bool runContinuously,
-    AstraLogLevel minLogLevel, const std::string &logPath,
-    const std::string &tempDir, bool usbDebug)
-    : pImpl{std::make_unique<AstraDeviceManagerImpl>(bootImagesPath, bootCommand, responseCallback,
+    : pImpl{std::make_unique<AstraDeviceManagerImpl>(responseCallback,
         runContinuously, minLogLevel, logPath, tempDir, usbDebug)}
 {}
 
 AstraDeviceManager::~AstraDeviceManager() = default;
 
-void AstraDeviceManager::Init()
+void AstraDeviceManager::Update(std::shared_ptr<FlashImage> flashImage, std::string bootImagePath)
 {
-    pImpl->Init();
+    pImpl->Update(flashImage, bootImagePath);
+}
+
+void AstraDeviceManager::Boot(std::string bootImagesPath, std::string bootCommand)
+{
+    pImpl->Boot(bootImagesPath, bootCommand);
 }
 
 bool AstraDeviceManager::Shutdown()
