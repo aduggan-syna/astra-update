@@ -4,12 +4,12 @@
 #include <memory>
 #include "astra_boot_image.hpp"
 
-class BootImagesCollection
+class BootImageCollection
 {
 public:
-    BootImagesCollection(std::string path) : m_path{path}
+    BootImageCollection(std::string path) : m_path{path}
     {}
-    ~BootImagesCollection();
+    ~BootImageCollection();
 
     void Load();
 

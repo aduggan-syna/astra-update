@@ -1,11 +1,11 @@
 #include <filesystem>
 #include <iostream>
-#include "boot_images_collection.hpp"
+#include "boot_image_collection.hpp"
 #include "astra_boot_image.hpp"
 #include "image.hpp"
 #include "astra_log.hpp"
 
-void BootImagesCollection::LoadBootImage(const std::filesystem::path &path)
+void BootImageCollection::LoadBootImage(const std::filesystem::path &path)
 {
     ASTRA_LOG;
 
@@ -18,7 +18,7 @@ void BootImagesCollection::LoadBootImage(const std::filesystem::path &path)
     }
 }
 
-void BootImagesCollection::Load()
+void BootImageCollection::Load()
 {
     ASTRA_LOG;
 
@@ -41,7 +41,7 @@ void BootImagesCollection::Load()
     }
 }
 
-std::vector<std::tuple<uint16_t, uint16_t>> BootImagesCollection::GetDeviceIDs() const
+std::vector<std::tuple<uint16_t, uint16_t>> BootImageCollection::GetDeviceIDs() const
 {
     ASTRA_LOG;
 
@@ -54,7 +54,7 @@ std::vector<std::tuple<uint16_t, uint16_t>> BootImagesCollection::GetDeviceIDs()
     return deviceIds;
 }
 
-AstraBootImage &BootImagesCollection::GetBootImage(std::string id) const
+AstraBootImage &BootImageCollection::GetBootImage(std::string id) const
 {
     ASTRA_LOG;
 
@@ -67,7 +67,7 @@ AstraBootImage &BootImagesCollection::GetBootImage(std::string id) const
     throw std::runtime_error("Boot Images not found");
 }
 
-std::vector<std::shared_ptr<AstraBootImage>> BootImagesCollection::GetBootImagesForChip(std::string chipName,
+std::vector<std::shared_ptr<AstraBootImage>> BootImageCollection::GetBootImagesForChip(std::string chipName,
     AstraSecureBootVersion secureBoot, AstraMemoryLayout memoryLayout, std::string boardName) const
 {
     ASTRA_LOG;
@@ -89,7 +89,7 @@ std::vector<std::shared_ptr<AstraBootImage>> BootImagesCollection::GetBootImages
     return bootImages;
 }
 
-BootImagesCollection::~BootImagesCollection()
+BootImageCollection::~BootImageCollection()
 {
     ASTRA_LOG;
 }

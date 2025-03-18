@@ -7,7 +7,7 @@
 #include <condition_variable>
 #include "astra_device.hpp"
 #include "astra_device_manager.hpp"
-#include "boot_images_collection.hpp"
+#include "boot_image_collection.hpp"
 #include "usb_transport.hpp"
 #include "image.hpp"
 #include "astra_log.hpp"
@@ -66,8 +66,8 @@ public:
     {
         ASTRA_LOG;
 
-        BootImagesCollection bootImagesCollection = BootImagesCollection(m_bootImagesPath);
-        bootImagesCollection.Load();
+        BootImageCollection bootImageCollection = BootImageCollection(m_bootImagesPath);
+        bootImageCollection.Load();
 
         if (m_bootImageId.empty()) {
             // No boot bootImages specified.
@@ -76,7 +76,7 @@ public:
                 throw std::runtime_error("Chip name and boot bootImages ID missing!");
             }
 
-            std::vector<std::shared_ptr<AstraBootImage>> bootImages = bootImagesCollection.GetBootImagesForChip(m_flashImage->GetChipName(),
+            std::vector<std::shared_ptr<AstraBootImage>> bootImages = bootImageCollection.GetBootImagesForChip(m_flashImage->GetChipName(),
                 m_flashImage->GetSecureBootVersion(), m_flashImage->GetMemoryLayout(), m_flashImage->GetBoardName());
             if (bootImages.size() == 0) {
                 throw std::runtime_error("No boot bootImages found for chip: " + m_flashImage->GetChipName());
@@ -101,7 +101,7 @@ public:
             }
         } else {
             // Exact boot bootImages specified
-            m_bootImage = std::make_shared<AstraBootImage>(bootImagesCollection.GetBootImage(m_flashImage->GetBootImageId()));
+            m_bootImage = std::make_shared<AstraBootImage>(bootImageCollection.GetBootImage(m_flashImage->GetBootImageId()));
         }
 
         if (m_bootImage == nullptr) {
