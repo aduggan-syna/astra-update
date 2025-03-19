@@ -534,6 +534,14 @@ private:
                 Image *image;
                 if (it == m_images.end()) {
                     log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
+                    if (m_status == ASTRA_DEVICE_STATUS_BOOT_START || m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
+                        SendStatus(ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, m_requestedImageName, m_requestedImageName + " image not found");
+                    } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START || m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
+                        SendStatus(ASTRA_DEVICE_STATUS_UPDATE_FAIL, 0, m_requestedImageName, m_requestedImageName + " image not found");
+                    } else {
+                        log(ASTRA_LOG_LEVEL_WARNING) << "Requested image not found: " << m_requestedImageName << " while in "
+                            << AstraDeviceStatusToString(m_status) << endLog;
+                    }
                     return -1;
                 } else {
                     image = &(*it);
