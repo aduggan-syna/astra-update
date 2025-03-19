@@ -11,6 +11,12 @@ enum AstraUbootConsole {
     ASTRA_UBOOT_CONSOLE_USB,
 };
 
+enum AstraUbootVariant {
+    ASTRA_UBOOT_VARIANT_UNKNOWN,
+    ASTRA_UBOOT_VARIANT_UBOOT,
+    ASTRA_UBOOT_VARIANT_SYNAPTICS,
+};
+
 class AstraBootImage
 {
 public:
@@ -30,6 +36,7 @@ public:
     AstraUbootConsole GetUbootConsole() const { return m_ubootConsole; }
     AstraMemoryLayout GetMemoryLayout() const { return m_memoryLayout; }
     const std::vector<Image>& GetImages() const { return m_images; }
+    AstraUbootVariant GetUbootVariant() const { return m_ubootVariant; }
 
     const std::string GetFinalBootImage();
 
@@ -46,7 +53,7 @@ private:
     AstraMemoryLayout m_memoryLayout;
     uint16_t m_vendorId;
     uint16_t m_productId;
-
+    AstraUbootVariant m_ubootVariant;
 
     bool LoadManifest(std::string manifestPath);
 };

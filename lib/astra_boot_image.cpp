@@ -41,6 +41,16 @@ bool AstraBootImage::LoadManifest(std::string manifestPath)
             throw std::runtime_error("Invalid memory layout");
         }
 
+        std::string ubootVariantString = manifest["uboot"].as<std::string>();
+        std::transform(ubootVariantString.begin(), ubootVariantString.end(), ubootVariantString.begin(), ::tolower);
+        if (ubootVariantString == "uboot") {
+            m_ubootVariant = ASTRA_UBOOT_VARIANT_UBOOT;
+        } else if (ubootVariantString == "suboot") {
+            m_ubootVariant = ASTRA_UBOOT_VARIANT_SYNAPTICS;
+        } else {
+            m_ubootVariant = ASTRA_UBOOT_VARIANT_UNKNOWN;
+        }
+
         log(ASTRA_LOG_LEVEL_INFO) << "Loaded boot bootImages: " << m_chipName << " " << m_boardName << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "ID: " << m_id << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "Secure boot version: " << (m_secureBootVersion == ASTRA_SECURE_BOOT_V2 ? "gen2" : "genx") << endLog;
@@ -48,6 +58,8 @@ bool AstraBootImage::LoadManifest(std::string manifestPath)
         log(ASTRA_LOG_LEVEL_INFO) << "Product ID: 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << m_productId << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "U-Boot console: " << (m_ubootConsole == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") << endLog;
         log(ASTRA_LOG_LEVEL_INFO) << "uEnv support: " << (m_uEnvSupport ? "true" : "false") << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "Memory layout: " << memoryLayoutString << endLog;
+        log(ASTRA_LOG_LEVEL_INFO) << "U-Boot variant: " << ubootVariantString << endLog;
     } catch (const YAML::BadFile& e) {
         log(ASTRA_LOG_LEVEL_ERROR) << "Unable to open the manifest file: " << e.what() << endLog;
         return false;

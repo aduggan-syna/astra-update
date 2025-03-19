@@ -72,12 +72,14 @@ public:
                 m_bootImage = bootImages[0];
                 for (const auto& bootImage : bootImages) {
                     log(ASTRA_LOG_LEVEL_INFO) << "Boot Image: " << bootImage->GetChipName() << " " << bootImage->GetBoardName() << endLog;
-                    if (bootImage->GetUEnvSupport()) {
-                        // Boot bootImages with uEnv support is preferred
+                    if (bootImage->GetUbootVariant() == ASTRA_UBOOT_VARIANT_SYNAPTICS && bootImage->GetUEnvSupport()) {
+                        // Boot bootImages with Synaptics u-boot variant is preferred
                         m_bootImage = bootImage;
                         break;
-                    }
-                    if (bootImage->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_USB) {
+                    } else if (bootImage->GetUEnvSupport()) {
+                        // Boot bootImages with uEnv support is preferred
+                        m_bootImage = bootImage;
+                    } else if (!m_bootImage->GetUEnvSupport() && bootImage->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_USB) {
                         // Boot bootImages with USB console is preferred over UART
                         // But only if there is no uEnv support
                         m_bootImage = bootImage;
@@ -171,7 +173,8 @@ private:
         bootImageDescription += "    Secure Boot: " + AstraSecureBootVersionToString(m_bootImage->GetSecureBootVersion()) + "\n";
         bootImageDescription += "    Memory Layout: " + AstraMemoryLayoutToString(m_bootImage->GetMemoryLayout()) + "\n";
         bootImageDescription += "    U-Boot Console: " + std::string(m_bootImage->GetUbootConsole() == ASTRA_UBOOT_CONSOLE_UART ? "UART" : "USB") + "\n";
-        bootImageDescription += "    uEnt.txt Support: " + std::string(m_bootImage->GetUEnvSupport() ? "enabled" : "disabled");
+        bootImageDescription += "    uEnt.txt Support: " + std::string(m_bootImage->GetUEnvSupport() ? "enabled" : "disabled") + "\n";
+        bootImageDescription += "    U-Boot Variant: " + std::string(m_bootImage->GetUbootVariant() == ASTRA_UBOOT_VARIANT_UBOOT ? "U-Boot" : "Synaptics U-Boot");
         ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_INFO, bootImageDescription}});
 
         uint16_t vendorId = m_bootImage->GetVendorId();
