@@ -213,7 +213,7 @@ public:
         ASTRA_LOG;
 
         std::lock_guard<std::mutex> lock(m_closeMutex);
-        if (m_shutdown.exchange(true)) {
+        if (!m_shutdown.exchange(true)) {
             m_running.store(false);
             m_deviceEventCV.notify_all();
             m_imageRequestCV.notify_all();
