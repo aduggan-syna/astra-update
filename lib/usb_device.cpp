@@ -22,6 +22,9 @@ USBDevice::USBDevice(libusb_device *device, libusb_context *ctx)
     m_interruptOutSize = 0;
     m_interruptInBuffer = nullptr;
     m_interruptOutBuffer = nullptr;
+    m_inputInterruptXfer = nullptr;
+    m_outputInterruptXfer = nullptr;
+    m_bulkWriteXfer = nullptr;
     m_bulkInEndpoint = 0;
     m_bulkOutEndpoint = 0;
     m_bulkInSize = 0;
