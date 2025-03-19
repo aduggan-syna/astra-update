@@ -225,7 +225,9 @@ public:
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Image request thread not joinable" << endLog;
             }
             log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down console" << endLog;
-            m_console->Shutdown();
+            if (m_console.get()) {
+                m_console->Shutdown();
+            }
 
             m_images.clear();
 
