@@ -17,6 +17,7 @@ ExternalProject_Add(yaml-cpp
     CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF
                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/yaml-cpp
                -DYAML_CPP_BUILD_TESTS=OFF
+               -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
 )
 
 file(GLOB SRC astra_boot_image.cpp

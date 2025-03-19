@@ -5,6 +5,7 @@ ExternalProject_Add(cxxopts
     GIT_TAG v3.0.0
     PREFIX ${CMAKE_BINARY_DIR}/cxxopts
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/cxxopts
+               -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
 )
 
 ExternalProject_Add(indicators
@@ -12,6 +13,7 @@ ExternalProject_Add(indicators
     GIT_TAG master
     PREFIX ${CMAKE_BINARY_DIR}/indicators
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/indicators
+               -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
 )
 
 add_executable(astra-update astra-update.cpp)
