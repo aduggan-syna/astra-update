@@ -14,13 +14,19 @@ ExternalProject_Add(indicators
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/indicators
 )
 
-add_executable(astra-update main.cpp)
+add_executable(astra-update astra-update.cpp)
 add_dependencies(astra-update astraupdate)
 add_dependencies(astra-update cxxopts)
 add_dependencies(astra-update indicators)
+
+add_executable(astra-boot astra-boot.cpp)
+add_dependencies(astra-boot astraupdate)
+add_dependencies(astra-boot cxxopts)
+add_dependencies(astra-boot indicators)
 
 include_directories(../include)
 include_directories(${CMAKE_BINARY_DIR}/cxxopts/include)
 include_directories(${CMAKE_BINARY_DIR}/indicators/include)
 
 target_link_libraries(astra-update astraupdate)
+target_link_libraries(astra-boot astraupdate)

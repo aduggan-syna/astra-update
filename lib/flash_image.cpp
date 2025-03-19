@@ -72,7 +72,7 @@ std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
         throw std::invalid_argument("Invalid Manifest");
     }
 
-    std::string bootFirmware = config["boot_firmware"];
+    std::string bootImage = config["boot_image"];
     std::string chipName = config["chip"];
     std::transform(chipName.begin(), chipName.end(), chipName.begin(), ::tolower);
 
@@ -123,11 +123,11 @@ std::shared_ptr<FlashImage> FlashImage::FlashImageFactory(std::string imagePath,
 
     switch (flashImageType) {
         case FLASH_IMAGE_TYPE_SPI:
-            return std::make_unique<SpiFlashImage>(imagePath, bootFirmware, chipName, boardName, secureBootVersion, memoryLayout, config);
+            return std::make_unique<SpiFlashImage>(imagePath, bootImage, chipName, boardName, secureBootVersion, memoryLayout, config);
         case FLASH_IMAGE_TYPE_NAND:
             throw std::invalid_argument("NAND FlashImage not supported");
         case FLASH_IMAGE_TYPE_EMMC:
-            return std::make_shared<EmmcFlashImage>(imagePath, bootFirmware, chipName, boardName, secureBootVersion, memoryLayout, config);
+            return std::make_shared<EmmcFlashImage>(imagePath, bootImage, chipName, boardName, secureBootVersion, memoryLayout, config);
         default:
             throw std::invalid_argument("Unknown FlashImageType");
     }

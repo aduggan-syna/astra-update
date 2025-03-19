@@ -5,10 +5,10 @@
 class SpiFlashImage : public FlashImage
 {
 public:
-    SpiFlashImage(std::string imagePath, std::string bootFirmware, std::string chipName,
+    SpiFlashImage(std::string imagePath, std::string bootImage, std::string chipName,
             std::string boardName, AstraSecureBootVersion secureBootVersion, AstraMemoryLayout memoryLayout,
             std::map<std::string, std::string> config) : FlashImage(FLASH_IMAGE_TYPE_SPI, imagePath,
-            bootFirmware, chipName, boardName, secureBootVersion, memoryLayout, config)
+            bootImage, chipName, boardName, secureBootVersion, memoryLayout, config)
     {}
     virtual ~SpiFlashImage()
     {}

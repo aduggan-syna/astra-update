@@ -7,8 +7,8 @@
 #include <cstring>
 
 #include "astra_device.hpp"
-#include "astra_update.hpp"
-#include "astra_boot_firmware.hpp"
+#include "astra_device_manager.hpp"
+#include "astra_boot_image.hpp"
 #include "flash_image.hpp"
 #include "astra_console.hpp"
 #include "usb_device.hpp"
@@ -18,8 +18,8 @@
 
 class AstraDevice::AstraDeviceImpl {
 public:
-    AstraDeviceImpl(std::unique_ptr<USBDevice> device, const std::string &tempDir)
-        : m_usbDevice{std::move(device)}, m_tempDir{tempDir}
+    AstraDeviceImpl(std::unique_ptr<USBDevice> device, const std::string &tempDir, const std::string &bootCommand)
+        : m_usbDevice{std::move(device)}, m_tempDir{tempDir}, m_bootCommand{bootCommand}
     {
         ASTRA_LOG;
     }
@@ -31,22 +31,22 @@ public:
         Close();
     }
 
-    void SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback)
+    void SetStatusCallback(std::function<void(AstraDeviceManagerResponse)> statusCallback)
     {
         ASTRA_LOG;
 
         m_statusCallback = statusCallback;
     }
 
-    int Boot(std::shared_ptr<AstraBootFirmware> firmware)
+    int Boot(std::shared_ptr<AstraBootImage> bootImage)
     {
         ASTRA_LOG;
 
         int ret;
 
-        m_ubootConsole = firmware->GetUbootConsole();
-        m_uEnvSupport = firmware->GetUEnvSupport();
-        m_finalBootImage = firmware->GetFinalBootImage();
+        m_ubootConsole = bootImage->GetUbootConsole();
+        m_uEnvSupport = bootImage->GetUEnvSupport();
+        m_finalBootImage = bootImage->GetFinalBootImage();
 
         ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::USBEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         if (ret < 0) {
@@ -75,17 +75,34 @@ public:
         imageFile << m_usbDevice->GetUSBPath();
         imageFile.close();
 
-        m_usbPathImage = std::make_unique<Image>(m_deviceDir + "/"  + m_usbPathImageFilename, ASTRA_IMAGE_TYPE_BOOT);
+        Image usbPathImage(m_deviceDir + "/"  + m_usbPathImageFilename, ASTRA_IMAGE_TYPE_BOOT);
         m_sizeRequestImage = std::make_unique<Image>(m_deviceDir + "/" + m_sizeRequestImageFilename, ASTRA_IMAGE_TYPE_UPDATE_EMMC);
-        m_uEnvImage = std::make_unique<Image>(m_deviceDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
 
         m_status = ASTRA_DEVICE_STATUS_OPENED;
 
-        std::vector<Image> firmwareImages = firmware->GetImages();
+        std::vector<Image> bootImageSubimages = bootImage->GetImages();
 
         {
             std::lock_guard<std::mutex> lock(m_imageMutex);
-            m_images.insert(m_images.end(), firmwareImages.begin(), firmwareImages.end());
+            m_images.insert(m_images.end(), bootImageSubimages.begin(), bootImageSubimages.end());
+
+            auto it = std::find_if(m_images.begin(), m_images.end(), [this](const Image &img) {
+                return img.GetName() == m_uEnvFilename;
+            });
+
+            // If uEnv.txt is not in the image list and uEnv is supported
+            // then create a uEnv image in the temp directory using the boot command
+            if (it == m_images.end() && m_uEnvSupport && !m_bootCommand.empty()) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Adding uEnv.txt to image list" << endLog;
+                Image uEnvImage(m_deviceDir + "/" + m_uEnvFilename, ASTRA_IMAGE_TYPE_BOOT);
+
+                WriteUEnvFile(m_bootCommand);
+
+                m_images.push_back(uEnvImage);
+            }
+
+            m_images.push_back(usbPathImage);
+            m_images.push_back(*m_sizeRequestImage);
         }
 
         m_running.store(true);
@@ -118,20 +135,8 @@ public:
             std::lock_guard<std::mutex> lock(m_imageMutex);
             m_images.insert(m_images.end(), flashImage->GetImages().begin(), flashImage->GetImages().end());
         }
-        if (m_uEnvSupport) {
-            std::string uEnv = "bootcmd=" + flashImage->GetFlashCommand();
-            std::ofstream uEnvFile(m_deviceDir + "/" + m_uEnvFilename);
-            if (!uEnvFile) {
-                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
-                return -1;
-            }
-            uEnvFile << uEnv;
-            uEnvFile.close();
-            {
-                std::lock_guard<std::mutex> lock(m_imageMutex);
-                m_images.push_back(*m_uEnvImage);
-            }
-        } else if (m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
+
+        if (!m_uEnvSupport && m_ubootConsole == ASTRA_UBOOT_CONSOLE_USB) {
             if (m_console->WaitForPrompt()) {
                 SendToConsole(flashImage->GetFlashCommand() + "\n");
             }
@@ -233,7 +238,7 @@ public:
 private:
     std::unique_ptr<USBDevice> m_usbDevice;
     AstraDeviceStatus m_status;
-    std::function<void(AstraUpdateResponse)> m_statusCallback;
+    std::function<void(AstraDeviceManagerResponse)> m_statusCallback;
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_shutdown{false};
     bool m_uEnvSupport = false;
@@ -271,9 +276,8 @@ private:
     const std::string m_sizeRequestImageFilename = "07_IMAGE";
     const std::string m_uEnvFilename = "uEnv.txt";
     std::string m_finalUpdateImage;
-    std::unique_ptr<Image> m_usbPathImage;
     std::unique_ptr<Image> m_sizeRequestImage;
-    std::unique_ptr<Image> m_uEnvImage;
+    std::string m_bootCommand;
 
     int m_imageCount = 0;
 
@@ -529,14 +533,16 @@ private:
 
                 Image *image;
                 if (it == m_images.end()) {
-                    if (m_requestedImageName == m_sizeRequestImageFilename) {
-                        image = m_sizeRequestImage.get();
-                    } else if (m_requestedImageName == m_usbPathImageFilename) {
-                        image = m_usbPathImage.get();
+                    log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
+                    if (m_status == ASTRA_DEVICE_STATUS_BOOT_START || m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
+                        SendStatus(ASTRA_DEVICE_STATUS_BOOT_FAIL, 0, m_requestedImageName, m_requestedImageName + " image not found");
+                    } else if (m_status == ASTRA_DEVICE_STATUS_UPDATE_START || m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
+                        SendStatus(ASTRA_DEVICE_STATUS_UPDATE_FAIL, 0, m_requestedImageName, m_requestedImageName + " image not found");
                     } else {
-                        log(ASTRA_LOG_LEVEL_ERROR) << "Requested image not found: " << m_requestedImageName << endLog;
-                        return -1;
+                        log(ASTRA_LOG_LEVEL_WARNING) << "Requested image not found: " << m_requestedImageName << " while in "
+                            << AstraDeviceStatusToString(m_status) << endLog;
                     }
+                    return -1;
                 } else {
                     image = &(*it);
                 }
@@ -588,19 +594,35 @@ private:
 
         return 0;
     }
+
+    bool WriteUEnvFile(std::string bootCommand)
+    {
+        ASTRA_LOG;
+
+        std::string uEnv = "bootcmd=" + bootCommand;
+        std::ofstream uEnvFile(m_deviceDir + "/" + m_uEnvFilename);
+        if (!uEnvFile) {
+            log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open uEnv.txt file" << endLog;
+            return false;
+        }
+        uEnvFile << uEnv;
+        uEnvFile.close();
+
+        return true;
+    }
 };
 
-AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device, const std::string &tempDir) :
-    pImpl{std::make_unique<AstraDeviceImpl>(std::move(device), tempDir)} {}
+AstraDevice::AstraDevice(std::unique_ptr<USBDevice> device, const std::string &tempDir, const std::string &bootCommand) :
+    pImpl{std::make_unique<AstraDeviceImpl>(std::move(device), tempDir, bootCommand)} {}
 
 AstraDevice::~AstraDevice() = default;
 
-void AstraDevice::SetStatusCallback(std::function<void(AstraUpdateResponse)> statusCallback) {
+void AstraDevice::SetStatusCallback(std::function<void(AstraDeviceManagerResponse)> statusCallback) {
     pImpl->SetStatusCallback(statusCallback);
 }
 
-int AstraDevice::Boot(std::shared_ptr<AstraBootFirmware> firmware) {
-    return pImpl->Boot(firmware);
+int AstraDevice::Boot(std::shared_ptr<AstraBootImage> bootImage) {
+    return pImpl->Boot(bootImage);
 }
 
 int AstraDevice::Update(std::shared_ptr<FlashImage> flashImage) {

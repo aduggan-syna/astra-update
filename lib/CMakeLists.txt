@@ -19,12 +19,12 @@ ExternalProject_Add(yaml-cpp
                -DYAML_CPP_BUILD_TESTS=OFF
 )
 
-file(GLOB SRC astra_boot_firmware.cpp
+file(GLOB SRC astra_boot_image.cpp
                 astra_console.cpp
                 astra_device.cpp
                 astra_log.cpp
-                astra_update.cpp
-                boot_firmware_collection.cpp
+                astra_device_manager.cpp
+                boot_image_collection.cpp
                 emmc_flash_image.cpp
                 flash_image.cpp
                 image.cpp

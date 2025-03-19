@@ -231,22 +231,25 @@ void USBDevice::Close()
     {
         m_running.store(false);
         if (m_inputInterruptXfer) {
+            struct timeval tv = { 1, 0 };
             libusb_cancel_transfer(m_inputInterruptXfer);
-            libusb_handle_events_completed(m_ctx, nullptr);
+            libusb_handle_events_timeout_completed(m_ctx, &tv, nullptr);
             libusb_free_transfer(m_inputInterruptXfer);
             m_inputInterruptXfer = nullptr;
         }
 
         if (m_outputInterruptXfer) {
+            struct timeval tv = { 1, 0 };
             libusb_cancel_transfer(m_outputInterruptXfer);
-            libusb_handle_events_completed(m_ctx, nullptr);
+            libusb_handle_events_timeout_completed(m_ctx, &tv, nullptr);
             libusb_free_transfer(m_outputInterruptXfer);
             m_outputInterruptXfer = nullptr;
         }
 
         if (m_bulkWriteXfer) {
+            struct timeval tv = { 1, 0 };
             libusb_cancel_transfer(m_bulkWriteXfer);
-            libusb_handle_events_completed(m_ctx, nullptr);
+            libusb_handle_events_timeout_completed(m_ctx, &tv, nullptr);
             libusb_free_transfer(m_bulkWriteXfer);
             m_bulkWriteXfer = nullptr;
         }

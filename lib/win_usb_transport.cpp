@@ -70,7 +70,7 @@ void WinUSBTransport::RunHotplugHandler()
     WNDCLASS wc = { 0 };
     wc.lpfnWndProc = WinUSBTransport::WndProc;
     wc.hInstance = GetModuleHandle(nullptr);
-    wc.lpszClassName = TEXT("AstraUpdate");
+    wc.lpszClassName = TEXT("AstraDeviceManager");
 
     if (!RegisterClass(&wc)) {
         DWORD error = GetLastError();
@@ -78,7 +78,7 @@ void WinUSBTransport::RunHotplugHandler()
         return;
     }
 
-    m_hWnd = CreateWindow(wc.lpszClassName, TEXT("AstraUpdate"), 0, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, this);
+    m_hWnd = CreateWindow(wc.lpszClassName, TEXT("AstraDeviceManager"), 0, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, this);
     if (!m_hWnd) {
         DWORD error = GetLastError();
         log(ASTRA_LOG_LEVEL_ERROR) << "Failed to create window: " << error << endLog;
