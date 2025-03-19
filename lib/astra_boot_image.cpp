@@ -92,7 +92,7 @@ bool AstraBootImage::Load()
         }
 
     m_directoryName = std::filesystem::path(m_path).filename().string();
-    log(ASTRA_LOG_LEVEL_DEBUG) << "Loaded boot bootImages: " << m_directoryName << endLog;
+    log(ASTRA_LOG_LEVEL_DEBUG) << "Loaded boot images: " << m_directoryName << endLog;
 
     return true;
 }
