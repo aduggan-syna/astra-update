@@ -53,6 +53,7 @@ protected:
     std::string m_finalImage;
     std::map<std::string, std::string> m_config;
     bool m_resetWhenComplete = false;
+    const std::string m_resetCommand = "; sleep 1; reset"; // sleep before resetting to let console messages be sent to the host
 };
 
 static std::string AstraFlashImageTypeToString(FlashImageType type)

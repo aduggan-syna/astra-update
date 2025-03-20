@@ -42,6 +42,7 @@ int SpiFlashImage::Load()
         std::string fullImagePath = m_imagePath + "/" + imageFile;
         if (std::filesystem::exists(fullImagePath)) {
             m_images.push_back(Image(fullImagePath, ASTRA_IMAGE_TYPE_UPDATE_SPI));
+            m_finalImage = imageFile;
         } else {
             return -1;
         }
@@ -49,6 +50,7 @@ int SpiFlashImage::Load()
         imageFile = std::filesystem::path(m_imagePath).filename().string();
         if (std::filesystem::exists(m_imagePath)) {
             m_images.push_back(Image(m_imagePath, ASTRA_IMAGE_TYPE_UPDATE_SPI));
+            m_finalImage = imageFile;
         } else {
             return -1;
         }
@@ -58,6 +60,8 @@ int SpiFlashImage::Load()
     m_flashCommand = "usbload " + imageFile + " " + m_readAddress + "; spinit; erase " 
         + m_eraseFirstStartAddress + " " + m_eraseFirstEndAddress + "; cp.b " + m_readAddress + " " + m_writeFirstCopyAddress
         + " " + m_writeLength + "; erase " + m_eraseSecondStartAddress + " " + m_eraseSecondEndAddress
-        + "; cp.b " + m_readAddress + " " + m_writeSecondCopyAddress + " " + m_writeLength + ";";
+        + "; cp.b " + m_readAddress + " " + m_writeSecondCopyAddress + " " + m_writeLength + ";" + m_resetCommand;
+    m_resetWhenComplete = true;
+
     return ret;
 }

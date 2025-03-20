@@ -574,7 +574,7 @@ private:
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
                         m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
                         SendStatus(m_status, 100, "", "Success");
-                    } else if (image->GetName().find(m_finalUpdateImage) != std::string::npos) {
+                    } else if (!m_finalUpdateImage.empty() && image->GetName().find(m_finalUpdateImage) != std::string::npos) {
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
                         if (image->GetImageType() == ASTRA_IMAGE_TYPE_UPDATE_EMMC) {
                             // EMMC update will ask for a request the size of the image
