@@ -8,7 +8,7 @@ ExternalProject_Add(libusb
     CMAKE_ARGS -DBUILD_SHARED_LIBS=OFF
                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/libusb
                -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
-               -DCMAKE_OSX_DEPLOYMENT_TARGET="11.0"
+               -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}
 )
 
 ExternalProject_Add(yaml-cpp
@@ -19,7 +19,7 @@ ExternalProject_Add(yaml-cpp
                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/yaml-cpp
                -DYAML_CPP_BUILD_TESTS=OFF
                -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
-               -DCMAKE_OSX_DEPLOYMENT_TARGET="11.0"
+               -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}
 )
 
 file(GLOB SRC astra_boot_image.cpp

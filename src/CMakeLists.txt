@@ -6,7 +6,7 @@ ExternalProject_Add(cxxopts
     PREFIX ${CMAKE_BINARY_DIR}/cxxopts
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/cxxopts
                -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
-               -DCMAKE_OSX_DEPLOYMENT_TARGET="11.0"
+               -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}
 )
 
 ExternalProject_Add(indicators
@@ -15,7 +15,7 @@ ExternalProject_Add(indicators
     PREFIX ${CMAKE_BINARY_DIR}/indicators
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/indicators
                -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
-               -DCMAKE_OSX_DEPLOYMENT_TARGET="11.0"
+               -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}
 )
 
 add_executable(astra-update astra-update.cpp)
