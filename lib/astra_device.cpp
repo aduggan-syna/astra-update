@@ -348,20 +348,26 @@ private:
         } else if (event == USBDevice::USB_DEVICE_EVENT_NO_DEVICE || event == USBDevice::USB_DEVICE_EVENT_TRANSFER_CANCELED ||
             event == USBDevice::USB_DEVICE_EVENT_TRANSFER_ERROR)
         {
-            // device disappeared or reported an error.
-            // If this occurred during boot or an update then report a failure.
-            // This this happened after and successful update then this is just
-            // the device rebooting so report success.
-            log(ASTRA_LOG_LEVEL_DEBUG) << "Device disconnected: shutting down" << endLog;
-            if (m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
-                m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
-            } else if (m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
-                m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
-            }
-            if (m_status != ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
-                // ASTRA_DEVICE_STATUS_UPDATE_COMPLETE will get sent
-                // from WaitForCompletion.
-                SendStatus(m_status, 0, "", "Device disconnected");
+            // When using SU-Boot the gen3_miniloader.bin.usb image seems to
+            // cause the device to reset and reconnect. Suppress reporting this as a failure.
+            if (m_requestedImageName == "gen3_miniloader.bin.usb") {
+                log(ASTRA_LOG_LEVEL_WARNING) << "Device disconnected: after sending gen3_miniloader.bin.usb" << endLog;
+            } else {
+                // device disappeared or reported an error.
+                // If this occurred during boot or an update then report a failure.
+                // This this happened after and successful update then this is just
+                // the device rebooting so report success.
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Device disconnected: shutting down" << endLog;
+                if (m_status == ASTRA_DEVICE_STATUS_UPDATE_PROGRESS) {
+                    m_status = ASTRA_DEVICE_STATUS_UPDATE_FAIL;
+                } else if (m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
+                    m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
+                }
+                if (m_status != ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
+                    // ASTRA_DEVICE_STATUS_UPDATE_COMPLETE will get sent
+                    // from WaitForCompletion.
+                    SendStatus(m_status, 0, "", "Device disconnected");
+                }
             }
             m_running.store(false);
             m_deviceEventCV.notify_all();
@@ -576,7 +582,7 @@ private:
                         SendStatus(m_status, 100, "", "Success");
                     } else if (!m_finalUpdateImage.empty() && image->GetName().find(m_finalUpdateImage) != std::string::npos) {
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
-                        if (image->GetImageType() == ASTRA_IMAGE_TYPE_UPDATE_EMMC) {
+                        if (image->GetImageType() == ASTRA_IMAGE_TYPE_UPDATE_EMMC || image->GetImageType() == ASTRA_IMAGE_TYPE_UPDATE_SPI) {
                             // EMMC update will ask for a request the size of the image
                             // just sent. Wait for that before marking the update complete.
                             waitForSizeRequest = true;
