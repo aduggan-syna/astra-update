@@ -400,6 +400,12 @@ void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
         int ret = libusb_clear_halt(device->m_handle, transfer->endpoint);
         if (ret < 0) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
+            if (ret == LIBUSB_ERROR_NO_DEVICE) {
+                device->m_running.store(false);
+                device->m_usbEventCallback(USB_DEVICE_EVENT_NO_DEVICE, nullptr, 0);
+            } else {
+                log(ASTRA_LOG_LEVEL_ERROR) << "Failed to clear halt on endpoint: " << libusb_error_name(ret) << endLog;
+            }
         } else {
             log(ASTRA_LOG_LEVEL_INFO) << "Halt cleared, retrying transfer" << endLog;
             resubmit = true;
