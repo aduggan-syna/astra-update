@@ -414,6 +414,7 @@ void USBDevice::HandleTransfer(struct libusb_transfer *transfer)
         int ret = libusb_submit_transfer(transfer);
         if (ret < 0) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to submit transfer: " << libusb_error_name(ret) << endLog;
+            device->m_usbEventCallback(USB_DEVICE_EVENT_TRANSFER_ERROR, nullptr, 0);
         }
     }
 }

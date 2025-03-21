@@ -37,8 +37,8 @@ public:
     AstraMemoryLayout GetMemoryLayout() const { return m_memoryLayout; }
     const std::vector<Image>& GetImages() const { return m_images; }
     AstraUbootVariant GetUbootVariant() const { return m_ubootVariant; }
-
-    const std::string GetFinalBootImage();
+    const std::string GetFinalBootImage() const { return m_finalBootImage; }
+    bool IsLinuxBoot() const { return m_linuxBoot; }
 
 private:
     std::string m_path;
@@ -54,6 +54,8 @@ private:
     uint16_t m_vendorId;
     uint16_t m_productId;
     AstraUbootVariant m_ubootVariant;
+    std::string m_finalBootImage;
+    bool m_linuxBoot = false;
 
     bool LoadManifest(std::string manifestPath);
 };

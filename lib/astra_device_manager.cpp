@@ -257,6 +257,9 @@ private:
             if (status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE && !m_runContinuously) {
                 log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down Astra Device Manager" << endLog;
                 ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_SHUTDOWN, "Astra Device Manager shutting down"}});
+            } else if (m_managerMode == ASTRA_DEVICE_MANAGER_MODE_BOOT  &&  status == ASTRA_DEVICE_STATUS_BOOT_COMPLETE && !m_runContinuously) {
+                log(ASTRA_LOG_LEVEL_DEBUG) << "Shutting down Astra Device Manager" << endLog;
+                ResponseCallback({ManagerResponse{ASTRA_DEVICE_MANAGER_STATUS_SHUTDOWN, "Astra Device Manager shutting down"}});
             }
 
             astraDevice->Close();

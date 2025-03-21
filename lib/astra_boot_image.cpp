@@ -79,17 +79,35 @@ bool AstraBootImage::Load()
 
     if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path)) {
         for (const auto& entry : std::filesystem::directory_iterator(m_path)) {
-                log(ASTRA_LOG_LEVEL_DEBUG) << "Found file: " << entry.path() << endLog;
-                if (entry.path().filename().string() == "manifest.yaml") {
-                    ret = LoadManifest(entry.path().string());
-                    if (!ret) {
-                        return ret;
-                    }
+            log(ASTRA_LOG_LEVEL_DEBUG) << "Found file: " << entry.path() << endLog;
+            if (entry.path().filename().string() == "manifest.yaml") {
+                ret = LoadManifest(entry.path().string());
+                if (!ret) {
+                    return ret;
+                }
+            } else {
+                m_images.push_back(Image(entry.path().string(), ASTRA_IMAGE_TYPE_BOOT));
+            }
+        }
+
+        if (std::filesystem::exists(m_path + "/Image.gz") && std::filesystem::exists(m_path + "/ramdisk.cpio.gz")) {
+            m_linuxBoot = true;
+            m_finalBootImage = "ramdisk.cpio.gz";
+        } else if (std::filesystem::exists(m_path + "/Image") && std::filesystem::exists(m_path + "/rootfs.cpio.gz")) {
+            m_linuxBoot = true;
+            m_finalBootImage = "rootfs.cpio.gz";
+        } else {
+            if (m_secureBootVersion == ASTRA_SECURE_BOOT_V2) {
+                m_finalBootImage = "minildr.img";
+            } else if (m_secureBootVersion == ASTRA_SECURE_BOOT_V3) {
+                if (m_uEnvSupport) {
+                    m_finalBootImage = "uEnv.txt";
                 } else {
-                    m_images.push_back(Image(entry.path().string(), ASTRA_IMAGE_TYPE_BOOT));
+                    m_finalBootImage = "gen3_uboot.bin.usb";
                 }
             }
         }
+    }
 
     m_directoryName = std::filesystem::path(m_path).filename().string();
     log(ASTRA_LOG_LEVEL_DEBUG) << "Loaded boot images: " << m_directoryName << endLog;
@@ -100,22 +118,4 @@ bool AstraBootImage::Load()
 AstraBootImage::~AstraBootImage()
 {
     ASTRA_LOG;
-}
-
-const std::string AstraBootImage::GetFinalBootImage()
-{
-    ASTRA_LOG;
-    std::string finalBootImage;
-
-    if (m_secureBootVersion == ASTRA_SECURE_BOOT_V2) {
-        finalBootImage = "minildr.img";
-    } else if (m_secureBootVersion == ASTRA_SECURE_BOOT_V3) {
-        if (m_uEnvSupport) {
-            finalBootImage = "uEnv.txt";
-        } else {
-            finalBootImage = "gen3_uboot.bin.usb";
-        }
-    }
-
-    return finalBootImage;
 }

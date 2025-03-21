@@ -48,6 +48,8 @@ public:
         m_uEnvSupport = bootImage->GetUEnvSupport();
         m_finalBootImage = bootImage->GetFinalBootImage();
 
+        m_bootOnly = bootImage->IsLinuxBoot();
+
         ret = m_usbDevice->Open(std::bind(&AstraDeviceImpl::USBEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         if (ret < 0) {
             log(ASTRA_LOG_LEVEL_ERROR) << "Failed to open device" << endLog;
@@ -153,9 +155,16 @@ public:
             for (;;) {
                 std::unique_lock<std::mutex> lock(m_deviceEventMutex);
                 m_deviceEventCV.wait(lock);
-                if (m_status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
-                    // Device successfully reset after update
-                    SendStatus(m_status, 100, "", "Success");
+                if (m_bootOnly) {
+                    if (m_status == ASTRA_DEVICE_STATUS_BOOT_COMPLETE) {
+                        // Device successfully reset after boot
+                        SendStatus(m_status, 100, "", "Success");
+                    }
+                } else {
+                    if (m_status == ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
+                        // Device successfully reset after update
+                        SendStatus(m_status, 100, "", "Success");
+                    }
                 }
 
                 if (!m_running.load()) {
@@ -263,6 +272,7 @@ private:
     std::condition_variable m_imageRequestThreadReadyCV;
     std::mutex m_imageRequestThreadReadyMutex;
     std::atomic<bool> m_imageRequestThreadReady = false;
+    bool m_bootOnly = false;
 
     const std::string m_imageRequestString = "i*m*g*r*q*";
     static constexpr int m_imageBufferSize = (1 * 1024 * 1024) + 4;
@@ -363,8 +373,8 @@ private:
                 } else if (m_status == ASTRA_DEVICE_STATUS_BOOT_PROGRESS) {
                     m_status = ASTRA_DEVICE_STATUS_BOOT_FAIL;
                 }
-                if (m_status != ASTRA_DEVICE_STATUS_UPDATE_COMPLETE) {
-                    // ASTRA_DEVICE_STATUS_UPDATE_COMPLETE will get sent
+                if (m_status != ASTRA_DEVICE_STATUS_UPDATE_COMPLETE && m_status != ASTRA_DEVICE_STATUS_BOOT_COMPLETE) {
+                    // ASTRA_DEVICE_STATUS_UPDATE_COMPLETE and ASTRA_DEVICE_STATUS_BOOT_COMPLETE will get sent
                     // from WaitForCompletion.
                     SendStatus(m_status, 0, "", "Device disconnected");
                 }
@@ -579,7 +589,11 @@ private:
                     if (image->GetName().find(m_finalBootImage) != std::string::npos) {
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final boot image sent" << endLog;
                         m_status = ASTRA_DEVICE_STATUS_BOOT_COMPLETE;
-                        SendStatus(m_status, 100, "", "Success");
+                        if (!m_bootOnly) {
+                            // ASTRA_DEVICE_STATUS_BOOT_COMPLETE will get sent from WaitForCompletion when
+                            // in boot only mode.
+                            SendStatus(m_status, 100, "", "Success");
+                        }
                     } else if (!m_finalUpdateImage.empty() && image->GetName().find(m_finalUpdateImage) != std::string::npos) {
                         log(ASTRA_LOG_LEVEL_DEBUG) << "Final update image sent" << endLog;
                         if (image->GetImageType() == ASTRA_IMAGE_TYPE_UPDATE_EMMC || image->GetImageType() == ASTRA_IMAGE_TYPE_UPDATE_SPI) {
