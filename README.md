@@ -17,7 +17,7 @@ Update images can also contain their own ``manifest.yaml`` file which specifies 
 
 ### The Temp Directory
 
-Astra Update creates a temp directory to store logs and supporting files which are used during the boot and update processes. By default, the temp directory will be created in the system default temp directory (``/tmp`` on Linux and Mad OS, ``C:\Users\<Username>\AppData\Local\Temp\`` on Windows). The temp directory contains the ``astradevicemanager.log`` file containing all logs for the execution of the process. The directory also contains device specific sub-directories which contains supporting data for each Astra device detected. The path of the temp directory can also be specified on the command line.
+Astra Update creates a temp directory to store logs and supporting files which are used during the boot and update processes. By default, the temp directory will be created in the system default temp directory (``/tmp`` on Linux and Mac OS, ``C:\Users\<Username>\AppData\Local\Temp\`` on Windows). The temp directory contains the ``astradevicemanager.log`` file containing all logs for the execution of the process. The directory also contains device specific sub-directories which contains supporting data for each Astra device detected. The path of the temp directory can also be specified on the command line.
 
 If the tool created the directory in the system default path, then it will delete it when the tool exits successfully. If the tool detects an error it will print the path of the directory and retain. The log file inside will contain additional information about the error. If the temp directory is specified on the command line then the tool will not automatically delete it.
 
