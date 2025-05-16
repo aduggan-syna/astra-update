@@ -1,3 +1,5 @@
+New repo for astra-update is https://github.com/synaptics-astra/astra-update
+
 # Astra Update
 
 The Astra Update tool and library support communicating with Astra Machina devices over USB. The USB interface is
